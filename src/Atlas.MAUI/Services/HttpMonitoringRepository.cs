@@ -37,4 +37,9 @@ public class HttpMonitoringRepository(HttpClient http) : IMonitoringRepository
         // Not exposed via API currently — MAUI is read-only for costs
         await Task.CompletedTask;
     }
+
+    public async Task IncrementDailyCostAsync(decimal costUsd)
+    {
+        await http.PostAsJsonAsync("api/monitoring/cost", new { costUsd });
+    }
 }
