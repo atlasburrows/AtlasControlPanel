@@ -270,29 +270,54 @@ public class AnalyticsController(
         // Upsert - replace if same hash+action exists
         await connection.ExecuteAsync(
             @"DELETE FROM CostOptimizationActions WHERE RecommendationHash = @Hash;
-              INSERT INTO CostOptimizationActions (RecommendationTitle, RecommendationHash, Action, ActionDetails, Status)
-              VALUES (@Title, @Hash, @Action, @Details, @Status)",
+              INSERT INTO CostOptimizationActions (RecommendationTitle, RecommendationHash, Action, ActionDetails, Status, 
+                  ImplementedAt, EstimatedMonthlySavings, PreviousCostPerDay, NewCostPerDay)
+              VALUES (@Title, @Hash, @Action, @Details, @Status,
+                  CASE WHEN @Action = 'applied' THEN SYSDATETIMEOFFSET() ELSE NULL END,
+                  @EstMonthlySavings, @PrevCostPerDay, @NewCostPerDay)",
             new { 
                 Hash = hash, 
                 dto.Title, 
                 dto.Action, 
                 Details = dto.Details,
-                Status = dto.Action == "applied" ? "pending" : "done"
+                Status = dto.Action == "applied" ? "pending" : "done",
+                EstMonthlySavings = dto.EstimatedMonthlySavings,
+                PrevCostPerDay = dto.PreviousCostPerDay,
+                NewCostPerDay = dto.NewCostPerDay
             });
 
         return Ok(new { hash, action = dto.Action, status = dto.Action == "applied" ? "pending" : "done" });
     }
 
     /// <summary>
-    /// Get all recommendation actions (applied/rejected history)
+    /// Get recommendation history with computed savings since implementation
     /// </summary>
     [HttpGet("recommendation/actions")]
     public async Task<IActionResult> GetRecommendationActions()
     {
         using var connection = connectionFactory.CreateConnection();
-        var actions = await connection.QueryAsync(
-            "SELECT Id, RecommendationTitle, RecommendationHash, Action, ActionDetails, CreatedAt, ImplementedAt, Status FROM CostOptimizationActions ORDER BY CreatedAt DESC");
-        return Ok(actions);
+        var actions = await connection.QueryAsync<RecommendationHistoryItem>(
+            @"SELECT 
+                Id, RecommendationTitle, RecommendationHash, Action, ActionDetails, 
+                CreatedAt, ImplementedAt, Status,
+                EstimatedMonthlySavings, PreviousCostPerDay, NewCostPerDay,
+                CASE WHEN Action = 'applied' AND ImplementedAt IS NOT NULL AND PreviousCostPerDay IS NOT NULL
+                     THEN DATEDIFF(DAY, ImplementedAt, SYSDATETIMEOFFSET()) * (PreviousCostPerDay - ISNULL(NewCostPerDay, 0))
+                     ELSE 0 END as ActualSavingsSinceImplementation,
+                CASE WHEN ImplementedAt IS NOT NULL
+                     THEN DATEDIFF(DAY, ImplementedAt, SYSDATETIMEOFFSET())
+                     ELSE 0 END as DaysSinceImplementation
+              FROM CostOptimizationActions 
+              ORDER BY CreatedAt DESC");
+        
+        var totalSaved = actions.Where(a => a.Action == "applied").Sum(a => a.ActualSavingsSinceImplementation);
+        
+        return Ok(new { 
+            actions = actions.ToList(), 
+            totalSavedAllTime = totalSaved,
+            appliedCount = actions.Count(a => a.Action == "applied"),
+            rejectedCount = actions.Count(a => a.Action == "rejected")
+        });
     }
 
     private static string ComputeHash(string input)
@@ -302,7 +327,26 @@ public class AnalyticsController(
     }
 }
 
-public record RecommendationActionDto(string Title, string Action, string? Details = null);
+public record RecommendationActionDto(
+    string Title, string Action, string? Details = null,
+    decimal? EstimatedMonthlySavings = null, decimal? PreviousCostPerDay = null, decimal? NewCostPerDay = null);
+
+public class RecommendationHistoryItem
+{
+    public Guid Id { get; set; }
+    public string RecommendationTitle { get; set; } = "";
+    public string RecommendationHash { get; set; } = "";
+    public string Action { get; set; } = "";
+    public string? ActionDetails { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? ImplementedAt { get; set; }
+    public string Status { get; set; } = "";
+    public decimal? EstimatedMonthlySavings { get; set; }
+    public decimal? PreviousCostPerDay { get; set; }
+    public decimal? NewCostPerDay { get; set; }
+    public decimal ActualSavingsSinceImplementation { get; set; }
+    public int DaysSinceImplementation { get; set; }
+}
 
 public record TokenUsageDto(
     string Provider,

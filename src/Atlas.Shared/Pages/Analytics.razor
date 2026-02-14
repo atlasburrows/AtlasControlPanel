@@ -207,6 +207,55 @@
                     }
                 </MudStack>
             }
+
+            <!-- Optimization History -->
+            @if (OptHistory != null && OptHistory.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2" Style="color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Optimization History
+                    @if (OptTotalSaved > 0)
+                    {
+                        <span style="color: #22c55e; margin-left: 8px;">💰 $@OptTotalSaved.ToString("F2") saved all-time</span>
+                    }
+                </MudText>
+                <MudStack Spacing="1">
+                    @foreach (var item in OptHistory)
+                    {
+                        var isApplied = item.Action == "applied";
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border-left: 3px solid @(isApplied ? "#22c55e" : "#ef4444");">
+                            <MudIcon Icon="@(isApplied ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                     Size="Size.Small" Style="@($"color: {(isApplied ? "#22c55e" : "#ef4444")}; flex-shrink: 0;")" />
+                            <div style="flex: 1; min-width: 0;">
+                                <MudText Typo="Typo.caption" Style="font-weight: 600; color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    @item.RecommendationTitle
+                                </MudText>
+                                @if (isApplied && item.DaysSinceImplementation > 0)
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.65rem;">
+                                        Applied @item.DaysSinceImplementation days ago
+                                        @if (item.EstimatedMonthlySavings.HasValue)
+                                        {
+                                            <span> · est. $@item.EstimatedMonthlySavings.Value.ToString("F2")/mo</span>
+                                        }
+                                    </MudText>
+                                }
+                                else if (!isApplied)
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.65rem;">Rejected</MudText>
+                                }
+                            </div>
+                            @if (isApplied && item.ActualSavingsSinceImplementation > 0)
+                            {
+                                <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; padding: 4px 8px; flex-shrink: 0;">
+                                    <MudText Typo="Typo.caption" Style="font-weight: 700; color: #22c55e;">
+                                        $@item.ActualSavingsSinceImplementation.ToString("F2") saved
+                                    </MudText>
+                                </div>
+                            }
+                        </div>
+                    }
+                </MudStack>
+            }
         </MudPaper>
     </MudItem>
 </MudGrid>
@@ -383,6 +432,8 @@
 @code {
     private CostAnalyticsSummary? AnalyticsData;
     private DashboardRoiSummary? RoiData;
+    private List<OptHistoryItem>? OptHistory;
+    private decimal OptTotalSaved;
     private int SelectedDays = 30;
     private List<ChartSeries> DailyCostSeries = new();
     private string[] DailyCostLabels = Array.Empty<string>();
@@ -438,6 +489,16 @@
             {
                 var roiJson = await roiResponse.Content.ReadAsStringAsync();
                 RoiData = JsonSerializer.Deserialize<DashboardRoiSummary>(roiJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+
+            // Load optimization history
+            var histResponse = await HttpClient.GetAsync("/api/analytics/recommendation/actions");
+            if (histResponse.IsSuccessStatusCode)
+            {
+                var histJson = await histResponse.Content.ReadAsStringAsync();
+                var histData = JsonSerializer.Deserialize<OptHistoryResponse>(histJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                OptHistory = histData?.Actions ?? new();
+                OptTotalSaved = histData?.TotalSavedAllTime ?? 0;
             }
             }
             else
@@ -503,5 +564,23 @@
             };
             ModelLabels = AnalyticsData.CostByModel.Select(m => m.Model).ToArray();
         }
+    }
+
+    private class OptHistoryResponse
+    {
+        public List<OptHistoryItem> Actions { get; set; } = new();
+        public decimal TotalSavedAllTime { get; set; }
+        public int AppliedCount { get; set; }
+        public int RejectedCount { get; set; }
+    }
+
+    private class OptHistoryItem
+    {
+        public string RecommendationTitle { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string? ActionDetails { get; set; }
+        public decimal? EstimatedMonthlySavings { get; set; }
+        public decimal ActualSavingsSinceImplementation { get; set; }
+        public int DaysSinceImplementation { get; set; }
     }
 }
