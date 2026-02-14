@@ -128,7 +128,11 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
                 SUM(CAST(CostUsd AS REAL)) as TotalCost,
                 SUM(InputTokens) as TotalInputTokens,
                 SUM(OutputTokens) as TotalOutputTokens,
-                COUNT(*) as RequestCount
+                COUNT(*) as RequestCount,
+                COUNT(DISTINCT DATE(Timestamp)) as DaysActive,
+                CASE WHEN COUNT(DISTINCT DATE(Timestamp)) > 0 
+                     THEN SUM(CAST(CostUsd AS REAL)) / COUNT(DISTINCT DATE(Timestamp))
+                     ELSE 0 END as AverageDailyCost
               FROM TokenUsage
               WHERE Timestamp >= @From AND Timestamp < @To AND Project IS NOT NULL
               GROUP BY Project

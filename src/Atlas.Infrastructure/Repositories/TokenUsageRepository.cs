@@ -98,7 +98,11 @@ public class TokenUsageRepository(IDbConnectionFactory connectionFactory) : ITok
                 SUM(CAST(CostUsd AS FLOAT)) as TotalCost,
                 SUM(InputTokens) as TotalInputTokens,
                 SUM(OutputTokens) as TotalOutputTokens,
-                COUNT(*) as RequestCount
+                COUNT(*) as RequestCount,
+                COUNT(DISTINCT CAST(Timestamp AS DATE)) as DaysActive,
+                CASE WHEN COUNT(DISTINCT CAST(Timestamp AS DATE)) > 0 
+                     THEN SUM(CAST(CostUsd AS FLOAT)) / COUNT(DISTINCT CAST(Timestamp AS DATE))
+                     ELSE 0 END as AverageDailyCost
               FROM TokenUsage
               WHERE Timestamp >= @From AND Timestamp < @To AND Project IS NOT NULL
               GROUP BY Project

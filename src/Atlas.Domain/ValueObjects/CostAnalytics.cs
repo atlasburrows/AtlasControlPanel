@@ -30,6 +30,8 @@ public class ProjectCostSummary
     public int TotalInputTokens { get; set; }
     public int TotalOutputTokens { get; set; }
     public int RequestCount { get; set; }
+    public int DaysActive { get; set; }
+    public decimal AverageDailyCost { get; set; }
 }
 
 public class TopExpensiveSession
