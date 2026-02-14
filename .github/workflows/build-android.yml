@@ -69,6 +69,9 @@ jobs:
       - name: Install MAUI workload
         run: dotnet workload install maui-android
 
+      - name: Restore dependencies
+        run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:TargetFramework=net10.0-android
+
       - name: Build Android (Signed Release)
         env:
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
@@ -80,6 +83,7 @@ jobs:
             dotnet publish src/Atlas.MAUI/Atlas.MAUI.csproj \
               -f net10.0-android \
               -c Release \
+              --no-restore \
               /p:AndroidSigningKeyStore=atlas.keystore \
               /p:AndroidSigningKeyAlias=atlas \
               /p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD" \
@@ -87,7 +91,8 @@ jobs:
           else
             dotnet publish src/Atlas.MAUI/Atlas.MAUI.csproj \
               -f net10.0-android \
-              -c Release
+              -c Release \
+              --no-restore
           fi
 
       - name: Upload Android AAB/APK
