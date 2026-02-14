@@ -957,6 +957,283 @@
     .reject-handle { display: none; }
 }
 
+/* ── FAB Swipe Hint (chevron above the button) ── */
+.radial-fab-hint {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0.35;
+    animation: hint-bob 2.5s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes hint-bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.35; }
+    50% { transform: translateX(-50%) translateY(-3px); opacity: 0.55; }
+}
+.radial-fab-active .radial-fab-hint,
+.radial-fab-shelf .radial-fab-hint {
+    display: none;
+}
+
+/* ── Radial "More" Pill ── */
+.radial-more-pill {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(22,27,34,0.92);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #8b949e;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    z-index: 100;
+    transform: translateX(-50%) scale(0);
+    opacity: 0;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s, background 0.15s;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.radial-more-visible {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+}
+.radial-more-pill:hover, .radial-more-pill:active {
+    background: rgba(59,130,246,0.15);
+    color: #3b82f6;
+    border-color: rgba(59,130,246,0.3);
+}
+
+/* ── FAB in shelf mode ── */
+.radial-fab-shelf {
+    transform: translateX(-50%) scale(0.85);
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* ═══════════════════════════════════════
+   PREMIUM SHELF — Bottom Sheet
+   ═══════════════════════════════════════ */
+.shelf-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 98;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.shelf-overlay-active {
+    opacity: 1;
+}
+
+.premium-shelf {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 101;
+    background: linear-gradient(180deg, #1c2333 0%, #161b22 100%);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px 20px 0 0;
+    padding: 0 20px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.premium-shelf-active {
+    transform: translateY(0);
+}
+.premium-shelf-closing {
+    transform: translateY(100%);
+    transition: transform 0.25s ease-in;
+}
+
+.shelf-handle {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 6px;
+}
+.shelf-handle-bar {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.2);
+}
+
+.shelf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0 16px;
+}
+.shelf-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #e6edf3;
+    letter-spacing: 0.02em;
+}
+.shelf-badge {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #0d1117;
+}
+
+/* ── Module Grid ── */
+.shelf-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding-bottom: 16px;
+}
+
+.shelf-module-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 8px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+}
+.shelf-module-card:hover, .shelf-module-active {
+    transform: translateY(-2px);
+    background: rgba(255,255,255,0.06);
+    border-color: color-mix(in srgb, var(--module-color, #3b82f6) 30%, transparent);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--module-color, #3b82f6) 15%, transparent);
+}
+
+.module-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--module-color, #3b82f6) 12%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--module-color, #3b82f6);
+    position: relative;
+    transition: background 0.15s ease;
+}
+.shelf-module-active .module-icon-wrap {
+    background: color-mix(in srgb, var(--module-color, #3b82f6) 20%, transparent);
+}
+
+.module-icon-wrap svg {
+    stroke: var(--module-color, #3b82f6);
+}
+
+.module-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #c9d1d9;
+    letter-spacing: 0.02em;
+}
+
+/* ── Locked module styling ── */
+.shelf-module-locked {
+    opacity: 0.5;
+}
+.shelf-module-locked .module-icon-wrap {
+    background: rgba(255,255,255,0.04);
+}
+.module-lock-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #30363d;
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8b949e;
+}
+
+/* ── Shelf Utility Footer ── */
+.shelf-footer {
+    display: flex;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.shelf-util-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--util-color, #8b949e);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
+}
+.shelf-util-btn:hover, .shelf-util-active {
+    background: rgba(255,255,255,0.06);
+}
+.shelf-util-icon {
+    display: flex;
+    line-height: 1;
+}
+.shelf-util-icon svg {
+    stroke: var(--util-color, #8b949e);
+}
+.shelf-util-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+/* ── Desktop: shelf as centered modal ── */
+@media (min-width: 769px) {
+    .premium-shelf {
+        left: 50%;
+        right: auto;
+        bottom: auto;
+        top: 50%;
+        transform: translate(-50%, -50%) scale(0.95);
+        opacity: 0;
+        border-radius: 16px;
+        width: 380px;
+        max-height: 80vh;
+        transition: transform 0.25s ease, opacity 0.2s ease;
+    }
+    .premium-shelf-active {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    .premium-shelf-closing {
+        transform: translate(-50%, -50%) scale(0.95);
+        opacity: 0;
+    }
+}
+
 /* Create Task Dialog */
 .create-task-dialog {
     position: fixed;
