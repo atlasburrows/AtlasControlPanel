@@ -16,7 +16,7 @@
             <MudButton @onclick="() => SelectPeriod(90)" Variant="@(SelectedDays == 90 ? Variant.Filled : Variant.Outlined)" Color="@(SelectedDays == 90 ? Color.Primary : Color.Default)">90 Days</MudButton>
         </MudButtonGroup>
     </MudItem>
-    <MudItem xs="12" md="6">
+    <MudItem xs="6" md="3">
         <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: right;">
             <MudText Typo="Typo.caption" Style="color: #8b949e;">Total Cost</MudText>
             <MudText Typo="Typo.h4" Style="font-weight: 700; color: #22c55e;">
@@ -29,6 +29,26 @@
                     <MudProgressCircular Indeterminate="true" Size="Size.Small" />
                 }
             </MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="3">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: right;">
+            <MudText Typo="Typo.caption" Style="color: #8b949e;">Daily Average</MudText>
+            <MudText Typo="Typo.h4" Style="font-weight: 700; color: #3b82f6;">
+                @if (AnalyticsData != null && RoiData != null && RoiData.DaysTracked > 0)
+                {
+                    <span>$@((AnalyticsData.TotalCost / RoiData.DaysTracked).ToString("F2"))</span>
+                }
+                else if (AnalyticsData != null)
+                {
+                    <span>$@AnalyticsData.AverageDailyCost.ToString("F2")</span>
+                }
+                else
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                }
+            </MudText>
+            <MudText Typo="Typo.caption" Style="color: #6b7280;">per day</MudText>
         </MudPaper>
     </MudItem>
 </MudGrid>
@@ -81,6 +101,13 @@
                         }
                     </MudText>
                 </div>
+                <div style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 10px; padding: 12px;">
+                    <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;">Est. Total Savings</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight: 700; color: #22c55e;">
+                        $@((RoiData.ModelTierSavings + RoiData.PotentialMonthlySavings).ToString("F2"))
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="color: #6b7280;">actual + projected monthly</MudText>
+                </div>
             </div>
 
             <!-- Operation breakdown -->
@@ -125,6 +152,26 @@
                 <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mt-3" Style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15);">
                     💡 Delegating background tasks to cheaper models could save ~<b>$@RoiData.PotentialMonthlySavings.ToString("F2")/mo</b>. The dashboard tracks this automatically.
                 </MudAlert>
+            }
+
+            <!-- Cost Optimization Recommendations -->
+            @if (AnalyticsData?.Recommendations != null && AnalyticsData.Recommendations.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2" Style="color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Cost Optimization</MudText>
+                <MudStack Spacing="2">
+                    @foreach (var rec in AnalyticsData.Recommendations)
+                    {
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-1">
+                                <MudIcon Icon="@(rec.Priority == 1 ? Icons.Material.Filled.Warning : Icons.Material.Filled.Lightbulb)"
+                                         Size="Size.Small" Style="@($"color: {(rec.Priority == 1 ? "#f59e0b" : "#3b82f6")};")"/>
+                                <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3; flex: 1;">@rec.Title</MudText>
+                                <MudText Typo="Typo.caption" Style="color: #22c55e; font-weight: 600;">~$@rec.EstimatedMonthlySavings.ToString("F2")/mo</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Style="color: #8b949e;">@rec.Description</MudText>
+                        </div>
+                    }
+                </MudStack>
             }
         </MudPaper>
     </MudItem>
@@ -296,48 +343,6 @@
                 <MudText Typo="Typo.body2" Style="color: #8b949e;">No data available</MudText>
             }
         </MudPaper>
-    </MudItem>
-</MudGrid>
-
-<!-- Row 4: Efficiency Recommendations -->
-<MudGrid Spacing="3" Class="mb-4">
-    <MudItem xs="12">
-        <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost Optimization Recommendations</MudText>
-        @if (AnalyticsData?.Recommendations != null && AnalyticsData.Recommendations.Count > 0)
-        {
-            <MudStack Spacing="2">
-                @foreach (var rec in AnalyticsData.Recommendations)
-                {
-                    <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-                        <MudStack Spacing="2">
-                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
-                                <MudChip T="string" Icon="@(rec.Priority == 1 ? Icons.Material.Filled.Warning : Icons.Material.Filled.Info)"
-                                         Color="@(rec.Priority == 1 ? Color.Warning : Color.Info)"
-                                         Class="mud-chip-text">
-                                    @(rec.Priority == 1 ? "High Priority" : rec.Priority == 2 ? "Medium Priority" : "Low Priority")
-                                </MudChip>
-                                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3; flex: 1;">@rec.Title</MudText>
-                            </MudStack>
-                            <MudText Typo="Typo.body2" Style="color: #8b949e;">@rec.Description</MudText>
-                            <MudStack Row="true" Spacing="3">
-                                <MudText Typo="Typo.caption" Style="color: #22c55e; font-weight: 600;">
-                                    Est. Monthly Savings: $@rec.EstimatedMonthlySavings.ToString("F2")
-                                </MudText>
-                                <MudText Typo="Typo.caption" Style="color: #e6edf3;">
-                                    Action: @rec.ActionItems
-                                </MudText>
-                            </MudStack>
-                        </MudStack>
-                    </MudPaper>
-                }
-            </MudStack>
-        }
-        else
-        {
-            <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-                <MudText Typo="Typo.body2" Style="color: #8b949e;">No recommendations available at this time. Your cost usage looks optimal!</MudText>
-            </MudPaper>
-        }
     </MudItem>
 </MudGrid>
 
