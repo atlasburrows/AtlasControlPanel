@@ -1,0 +1,298 @@
+@page "/settings"
+@using System.Net.Http.Json
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Settings</MudText>
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Security" Style="color: #3b82f6;" />
+                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Security</MudText>
+            </MudStack>
+            <MudStack Spacing="3">
+                <MudSwitch T="bool" Label="Require approval for credential access" Color="Color.Primary" @bind-Value="_requireCredentialApproval" />
+                <MudSwitch T="bool" Label="Require approval for financial actions" Color="Color.Primary" @bind-Value="_requireFinancialApproval" />
+                <MudSwitch T="bool" Label="Enable audit logging" Color="Color.Primary" @bind-Value="_auditLogging" />
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Notifications" Style="color: #f59e0b;" />
+                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Notifications</MudText>
+            </MudStack>
+            <MudStack Spacing="3">
+                <MudSwitch T="bool" Label="Permission request alerts" Color="Color.Primary" @bind-Value="_permissionAlerts" />
+                <MudSwitch T="bool" Label="Task completion notifications" Color="Color.Primary" @bind-Value="_taskNotifications" />
+                <MudSwitch T="bool" Label="Cost threshold warnings" Color="Color.Primary" @bind-Value="_costWarnings" />
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.PhonelinkSetup" Style="color: #10b981;" />
+                    <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Paired Devices</MudText>
+                </MudStack>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.QrCode2" OnClick="ShowPairingDialog">
+                    Pair New Device
+                </MudButton>
+            </MudStack>
+
+            @if (_devicesLoading)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+            }
+            else if (_devices.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-0">
+                    No devices paired yet. Click "Pair New Device" to connect a mobile app.
+                </MudAlert>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true" Style="background: transparent;">
+                    <thead>
+                        <tr>
+                            <th style="color: #8b949e;">Device</th>
+                            <th style="color: #8b949e;">Platform</th>
+                            <th style="color: #8b949e;">Paired</th>
+                            <th style="color: #8b949e;">Last Seen</th>
+                            <th style="color: #8b949e;">Status</th>
+                            <th style="color: #8b949e;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var device in _devices)
+                        {
+                            <tr>
+                                <td style="color: #e6edf3;">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@GetDeviceIcon(device.DeviceType)" Size="Size.Small" Style="color: #8b949e;" />
+                                        @device.Name
+                                    </MudStack>
+                                </td>
+                                <td style="color: #8b949e;">@(device.Platform ?? "—")</td>
+                                <td style="color: #8b949e;">@device.PairedAt.ToLocalTime().ToString("MMM d, yyyy")</td>
+                                <td style="color: #8b949e;">@(device.LastSeenAt?.ToLocalTime().ToString("MMM d, h:mm tt") ?? "Never")</td>
+                                <td>
+                                    @if (device.IsActive)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Connected</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">Disconnected</MudChip>
+                                    }
+                                </td>
+                                <td>
+                                    @if (device.IsActive)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.LinkOff" Size="Size.Small"
+                                                       Color="Color.Error" OnClick="() => DisconnectDevice(device.Id)"
+                                                       Title="Disconnect device" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Palette" Style="color: #a855f7;" />
+                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Appearance</MudText>
+            </MudStack>
+            <MudStack Spacing="3">
+                <MudSwitch T="bool" Label="Dark mode" Color="Color.Primary" @bind-Value="_darkMode" />
+                <MudSwitch T="bool" Label="Compact view" Color="Color.Primary" @bind-Value="_compactView" />
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@inject HttpClient Http
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudDialog @bind-Visible="_pairingDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.QrCode2" Style="color: #3b82f6;" />
+            <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Pair Mobile App</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (_pairingLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-6">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Style="color: #8b949e;">Generating pairing code...</MudText>
+            </MudStack>
+        }
+        else if (_pairingData != null)
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="4" Class="pa-4">
+                <MudText Style="color: #8b949e;" Align="Align.Center">
+                    Scan this QR code with the Atlas mobile app, or enter the code manually.
+                </MudText>
+
+                @* QR Code display — rendered as a data URL from the server *@
+                <MudPaper Elevation="0" Style="background: white; border-radius: 12px; padding: 16px;">
+                    <img src="@_qrCodeDataUrl" alt="Pairing QR Code" style="width: 200px; height: 200px;" />
+                </MudPaper>
+
+                <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Style="color: #8b949e; font-size: 0.85rem;">Or enter this code manually:</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3; letter-spacing: 8px; font-family: monospace;">
+                        @_pairingData.Code
+                    </MudText>
+                </MudStack>
+
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                    This code expires in 5 minutes.
+                </MudAlert>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _pairingDialogVisible = false">Close</MudButton>
+        <MudButton Color="Color.Primary" OnClick="ShowPairingDialog">Regenerate</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private bool _requireCredentialApproval = true;
+    private bool _requireFinancialApproval = true;
+    private bool _auditLogging = true;
+    private bool _permissionAlerts = true;
+    private bool _taskNotifications = true;
+    private bool _costWarnings = true;
+    private bool _darkMode = true;
+    private bool _compactView;
+
+    // Pairing
+    private List<PairedDeviceDto> _devices = new();
+    private bool _devicesLoading = true;
+    private bool _pairingDialogVisible;
+    private bool _pairingLoading;
+    private PairingDataDto? _pairingData;
+    private string _qrCodeDataUrl = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDevices();
+    }
+
+    private async Task LoadDevices()
+    {
+        _devicesLoading = true;
+        try
+        {
+            var devices = await Http.GetFromJsonAsync<List<PairedDeviceDto>>("api/pairing/devices");
+            _devices = devices ?? new();
+        }
+        catch { /* API may be unavailable */ }
+        finally
+        {
+            _devicesLoading = false;
+        }
+    }
+
+    private async Task ShowPairingDialog()
+    {
+        _pairingDialogVisible = true;
+        _pairingLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PostAsync("api/pairing/generate", null);
+            if (response.IsSuccessStatusCode)
+            {
+                _pairingData = await response.Content.ReadFromJsonAsync<PairingDataDto>();
+                if (_pairingData != null)
+                {
+                    // Generate QR code as simple SVG data URL
+                    _qrCodeDataUrl = GenerateQrDataUrl(_pairingData.QrData);
+                }
+            }
+        }
+        catch { }
+        finally
+        {
+            _pairingLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DisconnectDevice(Guid id)
+    {
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Disconnect Device",
+            "This device will no longer be able to access the control panel. Continue?",
+            yesText: "Disconnect", cancelText: "Cancel");
+
+        if (confirm == true)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/pairing/devices/{id}");
+                Snackbar.Add("Device disconnected.", Severity.Success);
+                await LoadDevices();
+            }
+            catch
+            {
+                Snackbar.Add("Failed to disconnect device.", Severity.Error);
+            }
+        }
+    }
+
+    private static string GetDeviceIcon(string deviceType) => deviceType switch
+    {
+        "mobile" => Icons.Material.Filled.PhoneAndroid,
+        "desktop" => Icons.Material.Filled.DesktopWindows,
+        "browser" => Icons.Material.Filled.Language,
+        _ => Icons.Material.Filled.Devices
+    };
+
+    private static string GenerateQrDataUrl(string data)
+    {
+        using var qrGenerator = new QRCoder.QRCodeGenerator();
+        using var qrCodeData = qrGenerator.CreateQrCode(data, QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+        var pngBytes = qrCode.GetGraphic(8, new byte[] { 0, 0, 0 }, new byte[] { 255, 255, 255 });
+        return $"data:image/png;base64,{Convert.ToBase64String(pngBytes)}";
+    }
+
+    // DTOs
+    private class PairedDeviceDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string DeviceType { get; set; } = "";
+        public string? Platform { get; set; }
+        public DateTime PairedAt { get; set; }
+        public DateTime? LastSeenAt { get; set; }
+        public string? LastIpAddress { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class PairingDataDto
+    {
+        public string Code { get; set; } = "";
+        public string Token { get; set; } = "";
+        public string QrData { get; set; } = "";
+        public string ServerUrl { get; set; } = "";
+        public int ExpiresInSeconds { get; set; }
+    }
+}
+

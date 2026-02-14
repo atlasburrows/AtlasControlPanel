@@ -1,0 +1,504 @@
+@page "/"
+@using Atlas.Application.Common.Interfaces
+@using Atlas.Domain.Entities
+@using Atlas.Domain.Enums
+@using Dapper
+@using System.Data
+@using System.Net.Http
+@using System.Text.Json
+@using Microsoft.Extensions.Configuration
+@inject ITaskRepository TaskRepo
+@inject IActivityRepository ActivityRepo
+@inject ISecurityRepository SecurityRepo
+@inject IMonitoringRepository MonitoringRepo
+@inject IDbConnectionFactory DbFactory
+@inject NavigationManager Nav
+@inject IHttpClientFactory HttpClientFactory
+@inject IConfiguration Configuration
+@implements IDisposable
+
+<MudText Typo="Typo.h5" Class="mb-1 welcome-text" Style="font-weight: 700;">Welcome back, @_displayName</MudText>
+<MudText Typo="Typo.body2" Style="color: #8b949e;" Class="mb-5">Here's what's happening with Atlas today.</MudText>
+
+@* Summary Cards — uniform 2-col mobile, 6-col desktop, same height *@
+<MudGrid Spacing="2">
+    <MudItem xs="6" md="2">
+        <MudPaper Class="pa-3 summary-card summary-card-blue" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => Nav.NavigateTo("/tasks"))">
+            @if (!_tasksLoaded)
+            {
+                @CardLoader
+            }
+            else
+            {
+                <MudStack Spacing="0" AlignItems="AlignItems.Start">
+                    <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Style="color: #3b82f6;" />
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mt-1">Active Tasks</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@_activeTasks</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudPaper Class="pa-3 summary-card summary-card-amber" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => Nav.NavigateTo("/security"))">
+            @if (!_securityLoaded)
+            {
+                @CardLoader
+            }
+            else
+            {
+                <MudStack Spacing="0" AlignItems="AlignItems.Start">
+                    <MudIcon Icon="@Icons.Material.Filled.Security" Style="color: #f59e0b;" />
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mt-1">Security Requests</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@_pendingApprovals</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudPaper Class="pa-3 summary-card summary-card-purple" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => _showBalanceInput = true)">
+            @if (!_balanceLoaded)
+            {
+                @CardLoader
+            }
+            else
+            {
+                <MudStack Spacing="0" AlignItems="AlignItems.Start">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width:100%;">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Style="color: #a855f7;" />
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Style="color: #484f58;" />
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mt-1">Credit Balance</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@_anthropicBalance</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudPaper Class="pa-3 summary-card summary-card-green" Elevation="0" Style="height: 100%;">
+            @if (!_tokensLoaded)
+            {
+                @CardLoader
+            }
+            else
+            {
+                <MudStack Spacing="0" AlignItems="AlignItems.Start">
+                    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Style="color: #22c55e;" />
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mt-1">Today's Cost</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@_todayCost</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudPaper Class="@($"pa-3 summary-card summary-card-{(_healthColor == "green" ? "green" : _healthColor == "yellow" ? "amber" : "red")}")" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => Nav.NavigateTo("/monitoring"))">
+            @if (!_healthLoaded)
+            {
+                @CardLoader
+            }
+            else
+            {
+                <MudStack Spacing="0" AlignItems="AlignItems.Start">
+                    <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Style="@($"color: {(_healthColor == "green" ? "#22c55e" : _healthColor == "yellow" ? "#f59e0b" : "#ef4444")};")" />
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mt-1">System Health</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight: 700; color: #e6edf3;">@_systemHealth</MudText>
+                    <MudText Typo="Typo.caption" Style="color: #484f58; font-size: 0.65rem;">@_healthDetail</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudPaper Class="pa-3 summary-card summary-card-blue" Elevation="0" Style="height: 100%;">
+            @if (!_tokensLoaded)
+            {
+                @CardLoader
+            }
+            else
+            {
+                <MudStack Spacing="0" AlignItems="AlignItems.Start">
+                    <MudIcon Icon="@Icons.Material.Filled.Token" Style="color: #06b6d4;" />
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mt-1">Tokens Left</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight: 700; color: #e6edf3;">@_tokensLeft</MudText>
+                    <MudText Typo="Typo.caption" Style="color: #484f58; font-size: 0.65rem;">@(_contextPct)% used</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+
+    @* Quick Actions — full width on mobile, sidebar on desktop *@
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Quick Actions</MudText>
+            <MudStack Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Href="/tasks"
+                           StartIcon="@Icons.Material.Filled.Add" Style="text-transform: none; border-radius: 8px;">New Task</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true" Href="/security"
+                           StartIcon="@Icons.Material.Filled.Security" Style="text-transform: none; border-radius: 8px;">Review Permissions</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" FullWidth="true" Href="/monitoring"
+                           StartIcon="@Icons.Material.Filled.MonitorHeart" Style="text-transform: none; border-radius: 8px;">System Status</MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    @* Recent Activity *@
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Recent Activity</MudText>
+            @if (!_activityLoaded)
+            {
+                <div style="display: flex; justify-content: center; padding: 24px 0;">
+                    <MudProgressCircular Color="Color.Primary" Size="Size.Medium" Indeterminate="true" />
+                </div>
+            }
+            else if (_recentActivity.Any())
+            {
+                <div>
+                    @foreach (var log in _recentActivity)
+                    {
+                        <div class="activity-timeline-item" style="cursor: pointer;" @onclick="() => GoToActivity(log.Id)">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@log.Action — @log.Description</MudText>
+                                <MudText Typo="Typo.caption" Style="color: #6b7280;">@FormatTime(log.Timestamp)</MudText>
+                            </MudStack>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">No recent activity</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+
+    @* Cost Chart — full width *@
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.subtitle2" Style="font-weight: 600; color: #e6edf3;">Cost — Last 30 Days</MudText>
+                <MudText Typo="Typo.caption" Style="color: #3b82f6; font-weight: 600;">Total: @($"${_dailyCosts.Sum(d => d.Cost):F2}")</MudText>
+            </MudStack>
+            @if (!_costsLoaded)
+            {
+                <div style="display: flex; justify-content: center; padding: 24px 0;">
+                    <MudProgressCircular Color="Color.Primary" Size="Size.Medium" Indeterminate="true" />
+                </div>
+            }
+            else
+            {
+                @if (_dailyCosts.Any(d => d.Cost > 0))
+                {
+                    <div style="display: flex; align-items: flex-end; gap: 6px; height: 140px; padding: 0 4px;">
+                        @foreach (var day in _dailyCosts.Where(d => d.Cost > 0))
+                        {
+                            var pct = _maxDailyCost > 0 ? (double)(day.Cost / _maxDailyCost * 100) : 0;
+                            var barPx = (int)Math.Max(pct / 100.0 * 90, 4);
+                            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0;">
+                                <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.6rem; white-space: nowrap;">$@day.Cost.ToString("F0")</MudText>
+                                <div style="@($"width: 100%; max-width: 32px; margin: 0 auto; height: {barPx}px; background: linear-gradient(180deg, #3b82f6, #1d4ed8); border-radius: 4px 4px 0 0;")"></div>
+                                <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">@day.Date.ToString("M/d")</MudText>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Style="color: #484f58;">No cost data yet</MudText>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@* Balance Quick-Update Dialog *@
+@if (_showBalanceInput)
+{
+    <div class="reject-overlay" @onclick="@(() => _showBalanceInput = false)">
+        <div class="reject-sheet" @onclick:stopPropagation="true">
+            <div class="reject-handle"></div>
+            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Update Credit Balance</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">Enter your current Anthropic credit balance from console.anthropic.com</MudText>
+            <MudTextField @bind-Value="_balanceInput" Label="Balance (e.g. $5.21)" Variant="Variant.Outlined" Class="mb-4"
+                          AutoFocus="true" Placeholder="$0.00" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.AttachMoney" />
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                <MudButton OnClick="@(() => _showBalanceInput = false)" Style="text-transform: none;">Cancel</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveBalance" Style="text-transform: none;">Save</MudButton>
+            </MudStack>
+        </div>
+    </div>
+}
+
+@code {
+    // ── Display ──
+    private string _displayName = "there";
+
+    // ── Loading flags ──
+    private bool _tasksLoaded, _securityLoaded, _balanceLoaded, _tokensLoaded, _healthLoaded, _activityLoaded, _costsLoaded;
+
+    // ── Data ──
+    private int _activeTasks;
+    private int _pendingApprovals;
+    private string _systemHealth = "Unknown";
+    private string _healthColor = "red";
+    private string _healthDetail = "Checking...";
+    private string _anthropicBalance = "—";
+    private string _todayCost = "$0.00";
+    private bool _todayCostFromDb;
+    private string _tokensLeft = "—";
+    private List<Atlas.Domain.Entities.ActivityLog> _recentActivity = new();
+    private List<DailyCost> _dailyCosts = new();
+    private decimal _maxDailyCost;
+    private System.Threading.Timer? _healthTimer;
+    private int _contextPct;
+    private bool _showBalanceInput;
+    private string _balanceInput = "";
+
+    private record DailyCost(DateTime Date, decimal Cost);
+
+    // ── Inline loading spinner component ──
+    private RenderFragment CardLoader => __builder =>
+    {
+        <div style="display: flex; justify-content: center; align-items: center; height: 70px;">
+            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Style="color: #484f58;" />
+        </div>
+    };
+
+    private static string FormatTime(DateTime ts)
+    {
+        var diff = DateTime.UtcNow - ts;
+        if (diff.TotalMinutes < 1) return "Just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return ts.ToLocalTime().ToString("MMM d");
+    }
+
+    private void GoToActivity(Guid id) => Nav.NavigateTo($"/activity?highlight={id}");
+
+    private async Task SaveBalance()
+    {
+        var clean = _balanceInput.Replace("$", "").Trim();
+        if (decimal.TryParse(clean, out var val))
+        {
+            _anthropicBalance = $"${val:F2}";
+            try
+            {
+                using var conn = DbFactory.CreateConnection();
+                await conn.ExecuteAsync("sp_SystemStatus_Upsert",
+                    new { Id = Guid.Parse("00000000-0000-0000-0000-000000000001"), AnthropicBalance = _anthropicBalance },
+                    commandType: CommandType.StoredProcedure);
+            }
+            catch { }
+        }
+        _showBalanceInput = false;
+    }
+
+    private async Task PollHealth()
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("cmd", "/c \"openclaw health --json\"")
+            {
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                UseShellExecute = false, CreateNoWindow = true
+            };
+            psi.Environment["NO_COLOR"] = "1";
+            using var proc = System.Diagnostics.Process.Start(psi)!;
+            var output = await proc.StandardOutput.ReadToEndAsync();
+            await proc.WaitForExitAsync();
+
+            // Strip ANSI escape codes and find JSON
+            output = System.Text.RegularExpressions.Regex.Replace(output ?? "", @"\x1B\[[^@-~]*[@-~]", "").Trim();
+            var jsonStart = output.IndexOf('{');
+            if (jsonStart >= 0)
+            {
+                output = output.Substring(jsonStart);
+                using var doc = JsonDocument.Parse(output);
+                var root = doc.RootElement;
+                
+                // Check top-level "ok" field
+                if (root.TryGetProperty("ok", out var ok) && ok.GetBoolean())
+                {
+                    _healthColor = "green";
+                    _systemHealth = "Healthy";
+                    // Count channels
+                    var chCount = 0;
+                    if (root.TryGetProperty("channels", out var ch) && ch.ValueKind == JsonValueKind.Object)
+                        chCount = ch.EnumerateObject().Count();
+                    _healthDetail = $"{chCount} channel{(chCount != 1 ? "s" : "")} active";
+                }
+                else if (root.TryGetProperty("overall", out var ov))
+                {
+                    _healthColor = ov.GetString() ?? "red";
+                    _systemHealth = _healthColor switch
+                    {
+                        "green" => "Healthy",
+                        "yellow" => "Degraded",
+                        _ => "Unhealthy"
+                    };
+                }
+                else
+                {
+                    _healthColor = "red";
+                    _systemHealth = "Unhealthy";
+                }
+            }
+        }
+        catch { }
+        _healthLoaded = true;
+    }
+
+    private async Task PollTokens()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient();
+            client.BaseAddress = new Uri("http://localhost:5263");
+            var response = await client.GetAsync("/api/tokens");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("mainSession", out var ms) && ms.ValueKind != JsonValueKind.Null)
+                {
+                    var contextTokens = ms.TryGetProperty("contextTokens", out var ctProp) ? ctProp.GetInt64() : 200000;
+                    var totalTokens = ms.TryGetProperty("totalTokens", out var ttProp) ? ttProp.GetInt64() : 0;
+                    // After compaction, remainingTokens may report 0 even though context was freed.
+                    // Use contextTokens - totalTokens as a more accurate remaining if totalTokens < contextTokens.
+                    var remaining = ms.TryGetProperty("remainingTokens", out var rtProp) ? rtProp.GetInt64() : 0;
+                    var pct = ms.TryGetProperty("percentUsed", out var puProp) ? puProp.GetInt32() : 0;
+                    
+                    // If remaining is 0 but we got valid context info, recalculate
+                    if (remaining <= 0 && totalTokens > 0 && totalTokens < contextTokens)
+                    {
+                        remaining = contextTokens - totalTokens;
+                        pct = (int)(totalTokens * 100 / contextTokens);
+                    }
+                    
+                    _tokensLeft = remaining >= 1000 ? $"{remaining / 1000}k" : remaining.ToString();
+                    _contextPct = pct;
+                }
+                // Only use session estimate if DB hasn't provided today's cost yet
+                if (!_todayCostFromDb && root.TryGetProperty("estimatedSessionCost", out var cost))
+                {
+                    _todayCost = $"${cost.GetDouble():F2}";
+                }
+            }
+        }
+        catch { }
+        _tokensLoaded = true;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Display name from config (Auth:DisplayName) or Auth:Username
+        _displayName = Configuration["Auth:DisplayName"]
+            ?? Configuration["Auth:Username"]
+            ?? "there";
+
+        // Fire all data loads in parallel, update UI as each completes
+        var loadTasks = Task.Run(async () =>
+        {
+            try
+            {
+                var tasks = (await TaskRepo.GetAllAsync()).ToList();
+                _activeTasks = tasks.Count(t => t.Status != TaskItemStatus.Done && t.Status != TaskItemStatus.Archived);
+            }
+            catch { }
+            _tasksLoaded = true;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        var loadSecurity = Task.Run(async () =>
+        {
+            try
+            {
+                var permissions = (await SecurityRepo.GetAllPermissionRequestsAsync()).ToList();
+                _pendingApprovals = permissions.Count(p => p.Status == PermissionStatus.Pending);
+            }
+            catch { }
+            _securityLoaded = true;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        var loadBalance = Task.Run(async () =>
+        {
+            try
+            {
+                var status = await MonitoringRepo.GetSystemStatusAsync();
+                _anthropicBalance = status?.AnthropicBalance ?? "—";
+            }
+            catch { }
+            _balanceLoaded = true;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        var loadActivity = Task.Run(async () =>
+        {
+            try
+            {
+                _recentActivity = (await ActivityRepo.GetAllAsync(10)).ToList();
+            }
+            catch { }
+            _activityLoaded = true;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        var loadHealth = Task.Run(async () =>
+        {
+            await PollHealth();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        var loadTokens = Task.Run(async () =>
+        {
+            await PollTokens();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        var loadCosts = Task.Run(async () =>
+        {
+            try
+            {
+                using var conn = DbFactory.CreateConnection();
+                var costRows = (await conn.QueryAsync<(DateTime Date, decimal Cost)>(
+                    "sp_DailyCosts_Get", new { Days = 30 }, commandType: CommandType.StoredProcedure)).ToList();
+
+                var today = DateTime.UtcNow.Date;
+                var costDict = costRows.ToDictionary(r => r.Date, r => r.Cost);
+
+                _dailyCosts = Enumerable.Range(0, 30)
+                    .Select(i => today.AddDays(-29 + i))
+                    .Select(d => new DailyCost(d, costDict.TryGetValue(d, out var c) ? c : 0))
+                    .ToList();
+                _maxDailyCost = _dailyCosts.Any() ? _dailyCosts.Max(d => d.Cost) : 0;
+
+                // DB is the source of truth for today's cost
+                var todayCostRow = _dailyCosts.FirstOrDefault(d => d.Date == today);
+                if (todayCostRow != null && todayCostRow.Cost > 0)
+                {
+                    _todayCost = $"${todayCostRow.Cost:F2}";
+                    _todayCostFromDb = true;
+                }
+            }
+            catch { }
+            _costsLoaded = true;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await Task.WhenAll(loadTasks, loadSecurity, loadBalance, loadActivity, loadHealth, loadTokens, loadCosts);
+
+        // Poll health + tokens every 30 seconds
+        _healthTimer = new System.Threading.Timer(async _ =>
+        {
+            await PollHealth();
+            await PollTokens();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    public void Dispose()
+    {
+        _healthTimer?.Dispose();
+    }
+}

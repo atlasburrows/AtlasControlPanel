@@ -1,0 +1,44 @@
+{
+  "id": "atlas-control-panel",
+  "name": "Atlas Control Panel",
+  "description": "Self-hosted control panel plugin for OpenClaw. Automatic activity logging, task management, credential approval, cost tracking, and real-time status monitoring — enforced at infrastructure level.",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiUrl": {
+        "type": "string",
+        "description": "Atlas Control Panel API base URL"
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "API key for authenticating with the Control Panel"
+      },
+      "autoLog": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "toolCalls": { "type": "boolean" },
+          "execCommands": { "type": "boolean" },
+          "sessionEvents": { "type": "boolean" },
+          "messageSends": { "type": "boolean" }
+        }
+      },
+      "batchIntervalMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 30000,
+        "description": "How often to flush batched events to the API"
+      }
+    }
+  },
+  "uiHints": {
+    "apiUrl": { "label": "Control Panel API URL", "placeholder": "http://localhost:5300" },
+    "apiKey": { "label": "Control Panel API Key", "sensitive": true },
+    "autoLog.toolCalls": { "label": "Auto-log Tool Calls" },
+    "autoLog.execCommands": { "label": "Auto-log Exec Commands" },
+    "autoLog.sessionEvents": { "label": "Auto-log Session Events" },
+    "autoLog.messageSends": { "label": "Auto-log Message Sends" }
+  }
+}

@@ -1,0 +1,381 @@
+@page "/security"
+@using Atlas.Application.Common.Interfaces
+@using Atlas.Domain.Entities
+@using Atlas.Domain.Enums
+@inject ISecurityRepository SecurityRepo
+@inject ICredentialRepository CredentialRepo
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Security</MudText>
+
+<MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4"
+         Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+
+    @* ── Tab 1: Permission Requests ── *@
+    <MudTabPanel Text="Permission Requests" Icon="@Icons.Material.Filled.Lock">
+        @if (_pendingRequests.Any())
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-3" Style="color: #f59e0b; font-weight: 600;">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
+                @_pendingRequests.Count Pending Request(s)
+            </MudText>
+            <MudGrid Class="mb-4">
+                @foreach (var req in _pendingRequests)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudCard Style="@($"background: #1c2333; border: 1px solid {GetUrgencyColor(req.Urgency)}40; border-left: 4px solid {GetUrgencyColor(req.Urgency)}; border-radius: 10px;")">
+                            <MudCardContent>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <MudChip T="string" Size="Size.Small" Style="@($"color: {GetCategoryColor(req.Category)}; border-color: {GetCategoryColor(req.Category)}; font-size: 0.7rem;")" Variant="Variant.Outlined">
+                                            @(req.Category ?? req.RequestType.ToString())
+                                        </MudChip>
+                                        @if (!string.IsNullOrEmpty(req.Urgency))
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Style="@($"background: {GetUrgencyColor(req.Urgency)}20; color: {GetUrgencyColor(req.Urgency)}; font-size: 0.7rem;")" Variant="Variant.Filled">
+                                                @req.Urgency
+                                            </MudChip>
+                                        }
+                                    </div>
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280;">@req.RequestedAt.ToString("MMM d, h:mm tt")</MudText>
+                                </div>
+                                <MudText Style="color: #c9d1d9; font-size: 0.9rem;">@req.Description</MudText>
+                                @if (req.ExpiresAt.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: #f59e0b; margin-top: 4px;">
+                                        Expires: @req.ExpiresAt.Value.ToString("MMM d, h:mm tt")
+                                    </MudText>
+                                }
+                            </MudCardContent>
+                            <MudCardActions Style="padding: 8px 16px 12px;">
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                                           OnClick="@(() => ResolvePermission(req.Id, PermissionStatus.Approved))"
+                                           Style="text-transform: none; border-radius: 6px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Class="mr-1" /> Approve
+                                </MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error"
+                                           OnClick="@(() => ResolvePermission(req.Id, PermissionStatus.Denied))"
+                                           Class="ml-2" Style="text-transform: none; border-radius: 6px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Class="mr-1" /> Deny
+                                </MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+        else
+        {
+            <MudAlert Severity="MudBlazor.Severity.Success" Variant="Variant.Outlined" Class="mb-4"
+                      Style="background: rgba(16,185,129,0.05); border-color: rgba(16,185,129,0.3);">
+                No pending permission requests
+            </MudAlert>
+        }
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2 mt-4" Style="color: #8b949e; font-weight: 600;">History</MudText>
+        @if (_resolvedRequests.Any())
+        {
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                @foreach (var req in _resolvedRequests)
+                {
+                    <div style="background: #1c2333; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); padding: 12px 16px;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                            <MudChip T="string" Size="Size.Small" Style="@($"color: {GetCategoryColor(req.Category)}; border-color: {GetCategoryColor(req.Category)}; font-size: 0.7rem;")" Variant="Variant.Outlined">
+                                @(req.Category ?? req.RequestType.ToString())
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(req.Status)" Variant="Variant.Outlined" Style="font-size: 0.7rem;">@req.Status</MudChip>
+                        </div>
+                        <MudText Style="color: #c9d1d9; font-size: 0.85rem;">@req.Description</MudText>
+                        <div style="display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
+                            <MudText Typo="Typo.caption" Style="color: #6b7280;">@(req.ResolvedAt?.ToString("MMM d, h:mm tt") ?? "-")</MudText>
+                            @if (!string.IsNullOrEmpty(req.ResolvedBy))
+                            {
+                                <MudText Typo="Typo.caption" Style="color: #6b7280;">by @req.ResolvedBy</MudText>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <MudText Typo="Typo.caption" Style="color: #6b7280;">No history yet.</MudText>
+        }
+    </MudTabPanel>
+
+    @* ── Tab 2: Credential Vault ── *@
+    <MudTabPanel Text="Credential Vault" Icon="@Icons.Material.Filled.VpnKey">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <MudText Typo="Typo.subtitle1" Style="color: #e6edf3; font-weight: 600;">
+                <MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
+                Stored Credentials (@_credentials.Count)
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                       OnClick="@(() => _showAddDialog = true)"
+                       Style="text-transform: none; border-radius: 6px;">
+                <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" Class="mr-1" /> Add Credential
+            </MudButton>
+        </div>
+
+        @foreach (var group in _credentials.GroupBy(c => c.Category).OrderBy(g => g.Key))
+        {
+            <MudText Typo="Typo.subtitle2" Class="mb-2 mt-3" Style="@($"color: {GetCredCategoryColor(group.Key)}; font-weight: 600;")">
+                @GetCategoryIcon(group.Key) @group.Key
+            </MudText>
+            <MudGrid Class="mb-3">
+                @foreach (var cred in group)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard Style="@($"background: #1c2333; border: 1px solid {GetCredCategoryColor(cred.Category)}30; border-top: 3px solid {GetCredCategoryColor(cred.Category)}; border-radius: 10px; height: 100%;")">
+                            <MudCardContent Style="padding: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <MudText Style="color: #e6edf3; font-weight: 600; font-size: 0.95rem;">@cred.Name</MudText>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                   Style="color: #6b7280;" OnClick="@(() => ConfirmDelete(cred))" />
+                                </div>
+                                @if (!string.IsNullOrEmpty(cred.Username))
+                                {
+                                    <MudText Typo="Typo.body2" Style="color: #8b949e; margin-top: 4px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="vertical-align: middle; font-size: 14px;" /> @cred.Username
+                                    </MudText>
+                                }
+                                @if (!string.IsNullOrEmpty(cred.Description))
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; margin-top: 6px;">@cred.Description</MudText>
+                                }
+                                <div style="display: flex; justify-content: space-between; margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280;">
+                                        @(cred.LastAccessedAt.HasValue ? $"Last: {cred.LastAccessedAt.Value:MMM d}" : "Never accessed")
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280;">
+                                        @cred.AccessCount access(es)
+                                    </MudText>
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+
+        @if (!_credentials.Any())
+        {
+            <MudAlert Severity="MudBlazor.Severity.Info" Variant="Variant.Outlined" Class="mt-4"
+                      Style="background: rgba(59,130,246,0.05); border-color: rgba(59,130,246,0.3);">
+                No credentials stored. Click "Add Credential" to get started.
+            </MudAlert>
+        }
+    </MudTabPanel>
+
+    @* ── Tab 3: Audit Log (kept) ── *@
+    <MudTabPanel Text="Audit Log" Icon="@Icons.Material.Filled.VerifiedUser">
+        <MudTable Items="_audits" Hover="true" Dense="true" Loading="_loading" Class="dark-table"
+                  Style="background: transparent;">
+            <HeaderContent>
+                <MudTh Style="color: #8b949e; font-weight: 600;">Timestamp</MudTh>
+                <MudTh Style="color: #8b949e; font-weight: 600;">Action</MudTh>
+                <MudTh Style="color: #8b949e; font-weight: 600;">Severity</MudTh>
+                <MudTh Style="color: #8b949e; font-weight: 600;">Details</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd Style="color: #6b7280;">@context.Timestamp.ToString("MMM d, h:mm tt")</MudTd>
+                <MudTd Style="color: #c9d1d9;">@context.Action</MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Style="@GetSeverityStyle(context.Severity)" Variant="Variant.Outlined">
+                        @context.Severity
+                    </MudChip>
+                </MudTd>
+                <MudTd Style="color: #c9d1d9;">@context.Details</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+</MudTabs>
+
+@* ── Add Credential Dialog ── *@
+<MudDialog @bind-Visible="_showAddDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="color: #e6edf3;">Add Credential</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_newName" Label="Name" Variant="Variant.Outlined" Class="mb-3"
+                      Placeholder="e.g. Gmail, Stripe API Key" Required="true" />
+        <MudSelect @bind-Value="_newCategory" Label="Category" Variant="Variant.Outlined" Class="mb-3" Required="true">
+            <MudSelectItem Value="@("Financial")">Financial</MudSelectItem>
+            <MudSelectItem Value="@("Email")">Email</MudSelectItem>
+            <MudSelectItem Value="@("Social")">Social</MudSelectItem>
+            <MudSelectItem Value="@("ApiKey")">API Key</MudSelectItem>
+            <MudSelectItem Value="@("SmartHome")">Smart Home</MudSelectItem>
+            <MudSelectItem Value="@("Business")">Business</MudSelectItem>
+            <MudSelectItem Value="@("Personal")">Personal</MudSelectItem>
+        </MudSelect>
+        <MudTextField @bind-Value="_newUsername" Label="Username / Email (optional)" Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_newDescription" Label="Description (optional)" Variant="Variant.Outlined" Lines="2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _showAddDialog = false)" Style="text-transform: none;">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="AddCredential"
+                   Disabled="@(string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newCategory))"
+                   Style="text-transform: none; border-radius: 6px;">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ── Delete Confirmation Dialog ── *@
+<MudDialog @bind-Visible="_showDeleteDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="color: #ef4444;">Delete Credential</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Style="color: #c9d1d9;">Are you sure you want to delete <b>@(_deleteTarget?.Name)</b>? This only removes the metadata — you'll need to manually remove the secret from Windows Credential Manager.</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _showDeleteDialog = false)" Style="text-transform: none;">Cancel</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="DeleteCredential"
+                   Style="text-transform: none; border-radius: 6px;">Delete</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<PermissionRequest> _pendingRequests = new();
+    private List<PermissionRequest> _resolvedRequests = new();
+    private List<SecurityAudit> _audits = new();
+    private List<SecureCredential> _credentials = new();
+    private bool _loading = true;
+
+    // Add credential dialog
+    private bool _showAddDialog;
+    private string _newName = "";
+    private string _newCategory = "";
+    private string? _newUsername;
+    private string? _newDescription;
+
+    // Delete dialog
+    private bool _showDeleteDialog;
+    private SecureCredential? _deleteTarget;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var allRequests = (await SecurityRepo.GetAllPermissionRequestsAsync()).ToList();
+            _pendingRequests = allRequests.Where(r => r.Status == PermissionStatus.Pending).ToList();
+            _resolvedRequests = allRequests.Where(r => r.Status != PermissionStatus.Pending).ToList();
+            _audits = (await SecurityRepo.GetAllAuditsAsync()).ToList();
+            _credentials = (await CredentialRepo.GetAllAsync()).ToList();
+        }
+        catch { }
+        _loading = false;
+    }
+
+    private async Task ResolvePermission(Guid id, PermissionStatus status)
+    {
+        try
+        {
+            await SecurityRepo.UpdatePermissionRequestAsync(id, status, "Admin");
+            var allRequests = (await SecurityRepo.GetAllPermissionRequestsAsync()).ToList();
+            _pendingRequests = allRequests.Where(r => r.Status == PermissionStatus.Pending).ToList();
+            _resolvedRequests = allRequests.Where(r => r.Status != PermissionStatus.Pending).ToList();
+            Snackbar.Add($"Permission {status}", status == PermissionStatus.Approved ? MudBlazor.Severity.Success : MudBlazor.Severity.Warning);
+        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", MudBlazor.Severity.Error); }
+    }
+
+    private async Task AddCredential()
+    {
+        try
+        {
+            var storageKey = $"atlas_vault_{_newCategory.ToLower()}_{_newName.ToLower().Replace(" ", "_")}";
+            var credential = new SecureCredential
+            {
+                Name = _newName,
+                Category = _newCategory,
+                Username = string.IsNullOrWhiteSpace(_newUsername) ? null : _newUsername,
+                Description = string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription,
+                StorageKey = storageKey
+            };
+            await CredentialRepo.CreateAsync(credential);
+            _credentials = (await CredentialRepo.GetAllAsync()).ToList();
+            _showAddDialog = false;
+            _newName = ""; _newCategory = ""; _newUsername = null; _newDescription = null;
+            Snackbar.Add("Credential added", MudBlazor.Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", MudBlazor.Severity.Error); }
+    }
+
+    private void ConfirmDelete(SecureCredential cred)
+    {
+        _deleteTarget = cred;
+        _showDeleteDialog = true;
+    }
+
+    private async Task DeleteCredential()
+    {
+        if (_deleteTarget == null) return;
+        try
+        {
+            await CredentialRepo.DeleteAsync(_deleteTarget.Id);
+            _credentials = (await CredentialRepo.GetAllAsync()).ToList();
+            _showDeleteDialog = false;
+            Snackbar.Add("Credential deleted", MudBlazor.Severity.Warning);
+        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", MudBlazor.Severity.Error); }
+    }
+
+    private static Color GetStatusColor(PermissionStatus s) => s switch
+    {
+        PermissionStatus.Pending => Color.Warning,
+        PermissionStatus.Approved => Color.Success,
+        PermissionStatus.Denied => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string GetUrgencyColor(string? urgency) => urgency switch
+    {
+        "Critical" => "#ef4444",
+        "High" => "#f97316",
+        "Medium" => "#f59e0b",
+        "Low" => "#3b82f6",
+        _ => "#8b949e"
+    };
+
+    private static string GetCategoryColor(string? category) => category switch
+    {
+        "CredentialAccess" => "#a855f7",
+        "Financial" => "#f59e0b",
+        "DataAccess" => "#3b82f6",
+        "ExternalAction" => "#10b981",
+        "SystemChange" => "#ef4444",
+        _ => "#8b949e"
+    };
+
+    private static string GetCredCategoryColor(string category) => category switch
+    {
+        "Financial" => "#f59e0b",
+        "Email" => "#3b82f6",
+        "Social" => "#a855f7",
+        "ApiKey" => "#10b981",
+        "SmartHome" => "#06b6d4",
+        "Business" => "#f97316",
+        "Personal" => "#8b5cf6",
+        _ => "#8b949e"
+    };
+
+    private static string GetCategoryIcon(string category) => category switch
+    {
+        "Financial" => "💰",
+        "Email" => "📧",
+        "Social" => "🌐",
+        "ApiKey" => "🔑",
+        "SmartHome" => "🏠",
+        "Business" => "💼",
+        "Personal" => "👤",
+        _ => "🔒"
+    };
+
+    private static string GetSeverityStyle(Atlas.Domain.Enums.Severity s) => s switch
+    {
+        Atlas.Domain.Enums.Severity.Critical => "color: #ef4444; border-color: #ef4444;",
+        Atlas.Domain.Enums.Severity.Warning => "color: #f59e0b; border-color: #f59e0b;",
+        Atlas.Domain.Enums.Severity.Info => "color: #3b82f6; border-color: #3b82f6;",
+        _ => "color: #8b949e; border-color: #8b949e;"
+    };
+}

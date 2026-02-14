@@ -1,0 +1,157 @@
+@page "/setup"
+@using Atlas.Application.Common.Interfaces
+@using System.Data
+@using Dapper
+@using Microsoft.Extensions.Configuration
+@inject IDbConnectionFactory DbFactory
+@inject NavigationManager Nav
+@inject IConfiguration Configuration
+
+<div style="max-width: 500px; margin: 40px auto; padding: 24px;">
+    <div style="text-align: center; margin-bottom: 32px;">
+        <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">🌐 Atlas Control Panel</MudText>
+        <MudText Typo="Typo.body1" Style="color: #8b949e; margin-top: 8px;">First-time setup</MudText>
+    </div>
+
+    @if (_step == 0)
+    {
+        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Welcome!</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
+                Let's get your control panel set up. This will only take a minute.
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => _step = 1)"
+                       Style="text-transform: none; border-radius: 8px;">Get Started</MudButton>
+        </MudPaper>
+    }
+    else if (_step == 1)
+    {
+        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 1: Database</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
+                Checking your database connection...
+            </MudText>
+            @if (_dbOk)
+            {
+                <MudAlert Severity="MudBlazor.Severity.Success" Variant="Variant.Outlined" Class="mb-4">
+                    ✅ Database connected! Found @_tableCount tables.
+                </MudAlert>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => _step = 2)"
+                           Style="text-transform: none; border-radius: 8px;">Next</MudButton>
+            }
+            else
+            {
+                <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+                    ❌ Could not connect to database. Please check your connection string in appsettings.json and run setup.sql.
+                </MudAlert>
+                <MudText Typo="Typo.caption" Style="color: #6b7280;" Class="mb-4">@_dbError</MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true" OnClick="CheckDb"
+                           Style="text-transform: none; border-radius: 8px;">Retry</MudButton>
+            }
+        </MudPaper>
+    }
+    else if (_step == 2)
+    {
+        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 2: Admin Account</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
+                Set your display name and verify your login credentials (configured in appsettings.json).
+            </MudText>
+            <MudTextField @bind-Value="_displayName" Label="Display Name" Variant="Variant.Outlined" Class="mb-3"
+                          Placeholder="Your name" />
+            <MudText Typo="Typo.caption" Style="color: #6b7280;" Class="mb-4">
+                Username: <b>@_configUsername</b> (change in appsettings.json → Auth section)
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => _step = 3)"
+                       Disabled="@(string.IsNullOrWhiteSpace(_displayName))"
+                       Style="text-transform: none; border-radius: 8px;">Next</MudButton>
+        </MudPaper>
+    }
+    else if (_step == 3)
+    {
+        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 3: API Key</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
+                Set an API key for your OpenClaw plugin to authenticate with the control panel.
+                Leave empty to skip (not recommended for remote access).
+            </MudText>
+            <MudTextField @bind-Value="_apiKey" Label="API Key" Variant="Variant.Outlined" Class="mb-3"
+                          Placeholder="Enter a strong key or leave empty" InputType="InputType.Password" />
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="GenerateKey" Class="mb-4"
+                       Style="text-transform: none; color: #3b82f6;">Generate random key</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="FinishSetup"
+                       Style="text-transform: none; border-radius: 8px;">Finish Setup</MudButton>
+        </MudPaper>
+    }
+    else if (_step == 4)
+    {
+        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">✅ Setup Complete!</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2" Style="color: #8b949e;">Your control panel is ready.</MudText>
+            @if (!string.IsNullOrEmpty(_apiKey))
+            {
+                <MudAlert Severity="MudBlazor.Severity.Info" Variant="Variant.Outlined" Class="mb-3">
+                    <b>API Key:</b> @_apiKey<br/>
+                    Add this to your OpenClaw plugin config as <code>"apiKey"</code> and to appsettings.json under <code>Api:Key</code>.
+                </MudAlert>
+            }
+            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
+                Note: Display name and API key must be saved to appsettings.json manually for now.
+                A future update will handle this automatically.
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Href="/login"
+                       Style="text-transform: none; border-radius: 8px;">Go to Login</MudButton>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    private int _step;
+    private bool _dbOk;
+    private int _tableCount;
+    private string? _dbError;
+    private string _displayName = "";
+    private string _configUsername = "";
+    private string _apiKey = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _configUsername = Configuration["Auth:Username"] ?? "admin";
+        _displayName = Configuration["Auth:DisplayName"] ?? _configUsername;
+        await CheckDb();
+    }
+
+    private async Task CheckDb()
+    {
+        try
+        {
+            using var conn = DbFactory.CreateConnection();
+            _tableCount = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'");
+            _dbOk = _tableCount > 0;
+            if (_tableCount == 0)
+            {
+                _dbError = "Database exists but has no tables. Please run setup.sql first.";
+                _dbOk = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _dbOk = false;
+            _dbError = ex.Message;
+        }
+    }
+
+    private void GenerateKey()
+    {
+        var bytes = new byte[32];
+        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+        rng.GetBytes(bytes);
+        _apiKey = Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+    }
+
+    private void FinishSetup()
+    {
+        _step = 4;
+    }
+}

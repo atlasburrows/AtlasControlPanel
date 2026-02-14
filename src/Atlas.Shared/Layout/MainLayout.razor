@@ -1,0 +1,148 @@
+@inherits LayoutComponentBase
+@using Atlas.Application.Common.Interfaces
+@using Dapper
+@using System.Data
+@inject IDbConnectionFactory DbFactory
+@inject IJSRuntime JS
+@implements IDisposable
+
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="atlas-layout">
+    @* Header *@
+    <header class="atlas-header">
+        <div class="atlas-header-top">
+            @* Desktop left *@
+            <div class="atlas-header-left atlas-hide-mobile">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" OnClick="ToggleSidebar" Size="Size.Small" />
+                <MudText Typo="Typo.h6" Class="ml-2 atlas-header-title" Style="font-weight: 600; letter-spacing: -0.5px; color: #e6edf3;">Atlas Dashboard</MudText>
+            </div>
+            @* Mobile: title left-aligned, notification at right end *@
+            <div class="atlas-mobile-header-row">
+                <MudText Typo="Typo.h6" Style="font-weight: 600; letter-spacing: -0.5px; color: #e6edf3; font-size: 0.95rem;">Atlas Dashboard</MudText>
+                <div style="flex:1;"></div>
+                <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" Size="Size.Small" />
+            </div>
+            @* Desktop right *@
+            <div class="atlas-header-right atlas-hide-mobile">
+                <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mr-3">Last sync: @DateTime.Now.ToString("MMM d, h:mm tt")</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" Size="Size.Small" />
+                <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" Size="Size.Small" Href="/settings" />
+                <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" Size="Size.Small" OnClick="DoLogout" Title="Sign out" />
+            </div>
+        </div>
+        @* Status row — mobile only, full width below title *@
+        <div class="atlas-header-status-row atlas-show-mobile">
+            <span class="header-status-dot @_statusCss"></span>
+            <span class="header-status-text">@_statusText</span>
+            <span class="header-status-detail">@_statusDetail</span>
+        </div>
+    </header>
+
+    @* Content Row: Sidebar + Body *@
+    <div class="atlas-content">
+        @* Desktop sidebar *@
+        @if (_drawerOpen)
+        {
+            <nav class="atlas-sidebar atlas-sidebar-desktop">
+                <NavMenu />
+            </nav>
+        }
+
+        @* Mobile sidebar overlay *@
+        @if (_mobileMenuOpen)
+        {
+            <div class="atlas-mobile-overlay" @onclick="CloseMobileMenu"></div>
+            <nav class="atlas-sidebar atlas-sidebar-mobile atlas-sidebar-mobile-open">
+                <NavMenu />
+            </nav>
+        }
+
+        <main class="atlas-body">
+            @Body
+        </main>
+    </div>
+
+    @* Radial menu replaces bottom nav on mobile *@
+    <RadialMenu />
+</div>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _mobileMenuOpen;
+    private string _statusText = "Online";
+    private string _statusDetail = "Ready";
+    private string _statusCss = "status-online";
+    private Timer? _statusTimer;
+
+    protected override void OnInitialized()
+    {
+        _statusTimer = new Timer(async _ => await PollStatus(), null, 0, 5000);
+    }
+
+    private async Task PollStatus()
+    {
+        try
+        {
+            using var conn = DbFactory.CreateConnection();
+            var row = await conn.QuerySingleOrDefaultAsync<dynamic>("sp_SystemStatus_Get", commandType: CommandType.StoredProcedure);
+            if (row is not null && !string.IsNullOrEmpty((string?)row.GatewayHealth))
+            {
+                string health = row.GatewayHealth;
+                var parts = health.Split('|', 2);
+                var state = parts[0].Trim();
+                _statusText = state switch { "Working" => "Working", "Waiting" => "Waiting", "Idle" => "Online", _ => state };
+                _statusDetail = parts.Length > 1 ? parts[1].Trim() : "";
+                _statusCss = state switch { "Working" => "status-working", "Waiting" => "status-waiting", _ => "status-online" };
+            }
+        }
+        catch { }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#1976d2",
+            Secondary = "#424242",
+            AppbarBackground = "#1565c0"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#3b82f6",
+            Secondary = "#8b949e",
+            Tertiary = "#a855f7",
+            Info = "#3b82f6",
+            Success = "#22c55e",
+            Warning = "#f59e0b",
+            Error = "#ef4444",
+            AppbarBackground = "#161b22",
+            Background = "#0d1117",
+            Surface = "#161b22",
+            DrawerBackground = "#0d1117",
+            DrawerText = "#c9d1d9",
+            TextPrimary = "#c9d1d9",
+            TextSecondary = "#8b949e",
+            ActionDefault = "#8b949e",
+            Divider = "rgba(255,255,255,0.06)",
+            LinesDefault = "rgba(255,255,255,0.06)"
+        }
+    };
+
+    private void ToggleSidebar()
+    {
+        // On mobile, toggle the overlay menu; on desktop, toggle the sidebar
+        _mobileMenuOpen = !_mobileMenuOpen;
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void CloseMobileMenu() => _mobileMenuOpen = false;
+
+    private async Task DoLogout() => await JS.InvokeVoidAsync("atlasAuth.logout");
+
+    public void Dispose() => _statusTimer?.Dispose();
+}

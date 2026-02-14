@@ -1,0 +1,74 @@
+@page "/monitoring"
+@using Atlas.Application.Common.Interfaces
+@using Atlas.Domain.Entities
+@inject IMonitoringRepository MonitoringRepo
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Monitoring</MudText>
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
+            <MudIcon Icon="@(_status?.GatewayHealth == "Healthy" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"
+                     Style="@($"color: {(_status?.GatewayHealth == "Healthy" ? "#22c55e" : "#ef4444")}; font-size: 4rem;")" />
+            <MudText Typo="Typo.h5" Class="mt-2" Style="font-weight: 700; color: #e6edf3;">
+                @(_status?.GatewayHealth ?? "Unknown")
+            </MudText>
+            <MudText Typo="Typo.caption" Style="color: #8b949e;">Gateway Status</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="8">
+        <MudGrid Spacing="3">
+            <MudItem xs="6">
+                <MudPaper Class="pa-4 summary-card summary-card-blue" Elevation="0" Style="height: 100%;">
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">Active Sessions</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@(_status?.ActiveSessions ?? 0)</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6">
+                <MudPaper Class="pa-4 summary-card summary-card-amber" Elevation="0" Style="height: 100%;">
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">Memory Usage</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@((_status?.MemoryUsage ?? 0).ToString("F1"))%</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6">
+                <MudPaper Class="pa-4 summary-card summary-card-purple" Elevation="0" Style="height: 100%;">
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">Uptime</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@(_status?.Uptime.ToString(@"d\.hh\:mm") ?? "—")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6">
+                <MudPaper Class="pa-4 summary-card summary-card-green" Elevation="0" Style="height: 100%;">
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">Last Check</MudText>
+                    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">@(_status?.LastUpdated.ToString("MMM d, h:mm tt") ?? "Never")</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudItem>
+</MudGrid>
+
+<MudGrid Class="mt-4" Spacing="4">
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost Overview (Last 7 Days)</MudText>
+            <MudChart ChartType="ChartType.Bar" ChartSeries="@_costSeries" XAxisLabels="@_costLabels"
+                      Width="100%" Height="250px"
+                      ChartOptions="@(new ChartOptions { YAxisTicks = 5, LineStrokeWidth = 2 })" />
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private SystemStatus? _status;
+    private List<ChartSeries> _costSeries = new()
+    {
+        new ChartSeries { Name = "Cost ($)", Data = new double[] { 0, 0, 0, 0, 0, 0, 0 } }
+    };
+    private string[] _costLabels = Enumerable.Range(0, 7)
+        .Select(i => DateTime.Today.AddDays(-6 + i).ToString("MMM d"))
+        .ToArray();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _status = await MonitoringRepo.GetSystemStatusAsync(); } catch { }
+    }
+}

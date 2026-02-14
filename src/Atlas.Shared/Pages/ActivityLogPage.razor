@@ -1,0 +1,227 @@
+@page "/activity"
+@using Atlas.Application.Common.Interfaces
+@using Atlas.Domain.Entities
+@using Atlas.Domain.Enums
+@using Dapper
+@using System.Data
+@using Microsoft.AspNetCore.Components
+@inject IDbConnectionFactory DbFactory
+@inject NavigationManager Nav
+@implements IDisposable
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Activity Log</MudText>
+
+<MudSelect @bind-Value="_categoryFilter" Label="Filter by Category" Clearable="true" Class="mb-4"
+           Style="max-width: 300px;" Variant="Variant.Outlined">
+    @foreach (var cat in Enum.GetValues<ActivityCategory>())
+    {
+        <MudSelectItem Value="@((ActivityCategory?)cat)">@cat</MudSelectItem>
+    }
+</MudSelect>
+
+<MudPaper Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); padding: 16px;">
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="ma-4" />
+    }
+    else if (!FilteredLogs.Any())
+    {
+        <MudText Typo="Typo.body2" Style="color: #8b949e; text-align: center; padding: 24px;">No activity recorded yet</MudText>
+    }
+    else
+    {
+        @foreach (var log in FilteredLogs)
+        {
+            var isExpanded = _expandedIds.Contains(log.Id);
+            var hasDetails = log.SubEntries.Any() || !string.IsNullOrEmpty(log.Details);
+            
+            <div id="@($"activity-{log.Id}")" class="activity-entry @(hasDetails ? "has-details" : "") @(_highlightId == log.Id ? "activity-highlight" : "")" @onclick="() => ToggleExpand(log.Id)">
+                <div class="activity-entry-header">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                        @if (hasDetails)
+                        {
+                            <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)" 
+                                     Size="Size.Small" Style="color: #8b949e;" />
+                        }
+                        else
+                        {
+                            <div style="width: 20px;"></div>
+                        }
+                        <MudChip T="string" Size="Size.Small" Style="@GetCategoryStyle(log.Category)" Variant="Variant.Outlined">
+                            @log.Category
+                        </MudChip>
+                        <MudText Typo="Typo.body2" Style="color: #e6edf3; font-weight: 500;">@log.Action</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #8b949e;">— @log.Description</MudText>
+                    </div>
+                    <MudText Typo="Typo.caption" Style="color: #6b7280; white-space: nowrap;">@FormatTime(log.Timestamp)</MudText>
+                </div>
+
+                @if (isExpanded && hasDetails)
+                {
+                    <div class="activity-details">
+                        @if (!string.IsNullOrEmpty(log.Details))
+                        {
+                            <pre class="activity-code-block">@log.Details</pre>
+                        }
+                        @foreach (var sub in log.SubEntries)
+                        {
+                            <div class="activity-sub-entry">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight" Size="Size.Small" Style="color: #484f58;" />
+                                    <MudChip T="string" Size="Size.Small" Style="@GetCategoryStyle(sub.Category)" Variant="Variant.Outlined">
+                                        @sub.Category
+                                    </MudChip>
+                                    <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@sub.Action</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; margin-left: auto;">@sub.Timestamp.ToLocalTime().ToString("h:mm:ss tt")</MudText>
+                                </div>
+                                @if (!string.IsNullOrEmpty(sub.Description))
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: #8b949e; margin-left: 52px;">@sub.Description</MudText>
+                                }
+                                @if (!string.IsNullOrEmpty(sub.Details))
+                                {
+                                    <pre class="activity-code-block" style="margin-left: 52px;">@sub.Details</pre>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</MudPaper>
+
+@code {
+    private List<ActivityLog> _logs = new();
+    private ActivityCategory? _categoryFilter;
+    private bool _loading = true;
+    private HashSet<Guid> _expandedIds = new();
+    private Timer? _refreshTimer;
+    private Guid? _highlightId;
+
+    [SupplyParameterFromQuery(Name = "highlight")]
+    public string? HighlightParam { get; set; }
+
+    private IEnumerable<ActivityLog> FilteredLogs =>
+        _categoryFilter.HasValue ? _logs.Where(l => l.Category == _categoryFilter.Value) : _logs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Guid.TryParse(HighlightParam, out var hid))
+        {
+            _highlightId = hid;
+            _expandedIds.Add(hid);
+        }
+
+        await LoadLogs();
+        _refreshTimer = new Timer(async _ =>
+        {
+            await LoadLogs();
+            await InvokeAsync(StateHasChanged);
+        }, null, 5000, 5000);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _highlightId.HasValue)
+        {
+            // Small delay then scroll to the element
+            await Task.Delay(100);
+            // Clear highlight after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _highlightId = null;
+                InvokeAsync(StateHasChanged);
+            });
+        }
+    }
+
+    private async Task LoadLogs()
+    {
+        try
+        {
+            using var conn = DbFactory.CreateConnection();
+            using var multi = await conn.QueryMultipleAsync("sp_ActivityLogs_GetWithDetails", new { Take = 100 }, commandType: CommandType.StoredProcedure);
+            
+            var parents = (await multi.ReadAsync<ActivityLogRow>()).ToList();
+            var children = (await multi.ReadAsync<ActivityLogRow>()).ToList();
+
+            _logs = parents.Select(p =>
+            {
+                var log = MapRow(p);
+                log.SubEntries = children.Where(c => c.ParentId == p.Id).Select(MapRow).ToList();
+                return log;
+            }).ToList();
+        }
+        catch
+        {
+            // Fallback to simple query if the new proc doesn't exist yet
+            try
+            {
+                using var conn = DbFactory.CreateConnection();
+                var rows = await conn.QueryAsync<ActivityLogRow>("sp_ActivityLogs_GetAll", new { Take = 100 }, commandType: CommandType.StoredProcedure);
+                _logs = rows.Where(r => r.ParentId == null).Select(MapRow).ToList();
+            }
+            catch { }
+        }
+        _loading = false;
+    }
+
+    private void ToggleExpand(Guid id)
+    {
+        if (!_expandedIds.Remove(id))
+            _expandedIds.Add(id);
+    }
+
+    private static ActivityLog MapRow(ActivityLogRow r) => new()
+    {
+        Id = r.Id,
+        Action = r.Action ?? "",
+        Description = r.Description ?? "",
+        Timestamp = r.Timestamp,
+        Category = Enum.TryParse<ActivityCategory>(r.Category, out var cat) ? cat : ActivityCategory.FileAccess,
+        ParentId = r.ParentId,
+        Details = r.Details,
+        RelatedTaskId = r.RelatedTaskId
+    };
+
+    private static string FormatTime(DateTime ts)
+    {
+        var diff = DateTime.UtcNow - ts;
+        if (diff.TotalMinutes < 1) return "Just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return ts.ToLocalTime().ToString("MMM d");
+    }
+
+    private static string GetCategoryStyle(ActivityCategory cat) => cat switch
+    {
+        ActivityCategory.FileAccess => "color: #3b82f6; border-color: #3b82f6; font-size: 0.65rem;",
+        ActivityCategory.CommandExecution => "color: #f59e0b; border-color: #f59e0b; font-size: 0.65rem;",
+        ActivityCategory.WebSearch => "color: #a855f7; border-color: #a855f7; font-size: 0.65rem;",
+        ActivityCategory.ApiCall => "color: #22c55e; border-color: #22c55e; font-size: 0.65rem;",
+        ActivityCategory.MessageSent => "color: #06b6d4; border-color: #06b6d4; font-size: 0.65rem;",
+        _ => "color: #8b949e; border-color: #8b949e; font-size: 0.65rem;"
+    };
+
+    public void Dispose() => _refreshTimer?.Dispose();
+
+    // Simple DTO for Dapper mapping
+    private class ActivityLogRow
+    {
+        public Guid Id { get; set; }
+        public string? Action { get; set; }
+        public string? Description { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string? Category { get; set; }
+        public Guid? ParentId { get; set; }
+        public string? Details { get; set; }
+        public Guid? RelatedTaskId { get; set; }
+        public int TokensUsed { get; set; }
+        public int ApiCalls { get; set; }
+        public decimal EstimatedCost { get; set; }
+        public string? Currency { get; set; }
+    }
+}
+

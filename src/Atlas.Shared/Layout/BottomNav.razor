@@ -1,0 +1,85 @@
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
+
+<nav class="atlas-bottom-nav">
+    <a href="/" class="bottom-nav-item @(IsActive("/", true) ? "active" : "")" @onclick:preventDefault @onclick="@(() => Navigate("/"))">
+        <MudIcon Icon="@Icons.Material.Filled.Dashboard" Size="Size.Small" />
+        <span>Home</span>
+    </a>
+    <a href="/tasks" class="bottom-nav-item @(IsActive("/tasks") ? "active" : "")" @onclick:preventDefault @onclick="@(() => Navigate("/tasks"))">
+        <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Small" />
+        <span>Tasks</span>
+    </a>
+    <a href="/activity" class="bottom-nav-item @(IsActive("/activity") ? "active" : "")" @onclick:preventDefault @onclick="@(() => Navigate("/activity"))">
+        <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Small" />
+        <span>Activity</span>
+    </a>
+    <a href="/chat" class="bottom-nav-item @(IsActive("/chat") ? "active" : "")" @onclick:preventDefault @onclick="@(() => Navigate("/chat"))">
+        <MudIcon Icon="@Icons.Material.Filled.Chat" Size="Size.Small" />
+        <span>Chat</span>
+    </a>
+    <div class="bottom-nav-item @(_moreOpen || IsMoreActive() ? "active" : "")" @onclick="ToggleMore">
+        <MudIcon Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" />
+        <span>More</span>
+    </div>
+</nav>
+
+@if (_moreOpen)
+{
+    <div class="bottom-nav-overlay" @onclick="CloseMore"></div>
+    <div class="bottom-nav-more-menu">
+        <a href="/security" class="more-menu-item @(IsActive("/security") ? "active" : "")" @onclick:preventDefault @onclick="@(() => NavigateAndClose("/security"))">
+            <MudIcon Icon="@Icons.Material.Filled.Security" Size="Size.Small" />
+            <span>Security</span>
+        </a>
+        <a href="/monitoring" class="more-menu-item @(IsActive("/monitoring") ? "active" : "")" @onclick:preventDefault @onclick="@(() => NavigateAndClose("/monitoring"))">
+            <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Size="Size.Small" />
+            <span>Monitoring</span>
+        </a>
+        <a href="/settings" class="more-menu-item @(IsActive("/settings") ? "active" : "")" @onclick:preventDefault @onclick="@(() => NavigateAndClose("/settings"))">
+            <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" />
+            <span>Settings</span>
+        </a>
+        <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 4px 0;"></div>
+        <a class="more-menu-item" @onclick:preventDefault @onclick="DoLogout" style="color: #ef4444;">
+            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" Style="color: #ef4444;" />
+            <span>Sign Out</span>
+        </a>
+    </div>
+}
+
+@code {
+    private string _currentUri = "";
+    private bool _moreOpen;
+
+    protected override void OnInitialized()
+    {
+        _currentUri = Nav.Uri;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _currentUri = e.Location;
+        _moreOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsActive(string href, bool exact = false)
+    {
+        var path = new Uri(_currentUri).AbsolutePath;
+        return exact ? path == href : path.StartsWith(href);
+    }
+
+    private bool IsMoreActive() => IsActive("/security") || IsActive("/monitoring") || IsActive("/settings");
+
+    private void Navigate(string href) => Nav.NavigateTo(href);
+    private void NavigateAndClose(string href) { _moreOpen = false; Nav.NavigateTo(href); }
+    private void ToggleMore() => _moreOpen = !_moreOpen;
+    private void CloseMore() => _moreOpen = false;
+
+    private async Task DoLogout() => await JS.InvokeVoidAsync("atlasAuth.logout");
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

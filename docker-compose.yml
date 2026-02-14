@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  atlas:
+    build: .
+    ports:
+      - "5263:5263"
+    volumes:
+      - atlas-data:/app/data
+    environment:
+      - AUTH_USERNAME=admin
+      - AUTH_PASSWORD=changeme
+      - AUTH_DISPLAYNAME=Admin
+      - API_KEY=
+    restart: unless-stopped
+
+  # Optional: SQL Server instead of SQLite
+  # Uncomment and set CONNECTION_STRING on atlas service to use
+  #
+  # sqlserver:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - SA_PASSWORD=YourStrong!Password
+  #   ports:
+  #     - "1433:1433"
+  #   volumes:
+  #     - sql-data:/var/opt/mssql
+
+volumes:
+  atlas-data:
+  # sql-data:

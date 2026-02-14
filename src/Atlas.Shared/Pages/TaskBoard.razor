@@ -1,0 +1,456 @@
+@page "/tasks"
+@using Atlas.Application.Common.Interfaces
+@using Atlas.Domain.Entities
+@using Atlas.Domain.Enums
+@inject ITaskRepository TaskRepo
+@inject ISnackbar Snackbar
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h5" Style="font-weight: 600; color: #e6edf3;">Task Board</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog" Style="text-transform: none; border-radius: 8px;">New Task</MudButton>
+</MudStack>
+
+<div class="taskboard-grid">
+    @foreach (var status in new[] { TaskItemStatus.Backlog, TaskItemStatus.ToDo, TaskItemStatus.InProgress, TaskItemStatus.Review, TaskItemStatus.Done, TaskItemStatus.Archived })
+    {
+        var columnTasks = _tasks.Where(t => t.Status == status).ToList();
+        var s = status;
+        <div class="taskboard-column"
+             ondragover="event.preventDefault();"
+             @ondragover:preventDefault="true"
+             @ondrop="() => OnDrop(s)">
+            <div class="column-header">
+                <MudText Typo="Typo.subtitle2" Style="@($"font-weight: 600; color: {GetStatusColor(status)};")">@FormatStatus(status)</MudText>
+                <span class="column-count">@columnTasks.Count</span>
+            </div>
+            <div class="column-cards">
+                @foreach (var task in columnTasks)
+                {
+                    var t = task;
+                    <div class="@($"task-card task-card-{task.Status.ToString().ToLowerInvariant()}")"
+                         draggable="true"
+                         @ondragstart="() => OnDragStart(t)"
+                         @onclick="() => SelectTask(t)">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600; color: #e6edf3;">@task.Title</MudText>
+                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                            <MudText Typo="Typo.caption" Style="color: #6b7280;">
+                                @task.CreatedAt.ToString("MMM d, yyyy")
+                            </MudText>
+                            @if (task.IsScheduled)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Style="color: #3b82f6; font-size: 14px;" />
+                            }
+                            @if (task.IsRecurring)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Repeat" Size="Size.Small" Style="color: #a855f7; font-size: 14px;" />
+                            }
+                        </div>
+                    </div>
+                }
+                @if (!columnTasks.Any())
+                {
+                    <MudText Typo="Typo.caption" Style="color: #484f58; text-align: center; padding: 16px;">No tasks</MudText>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@* Mobile: Collapsible sections *@
+@foreach (var status in new[] { TaskItemStatus.Backlog, TaskItemStatus.ToDo, TaskItemStatus.InProgress, TaskItemStatus.Review, TaskItemStatus.Done, TaskItemStatus.Archived })
+{
+    var columnTasks = _tasks.Where(t => t.Status == status).ToList();
+    var s = status;
+    var isExpanded = _mobileExpanded.Contains(status);
+    <div class="mobile-task-section">
+        <div class="mobile-task-section-header" @onclick="() => ToggleMobileSection(s)">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)" Size="Size.Small" Style="color: #8b949e;" />
+                <MudText Typo="Typo.subtitle2" Style="@($"font-weight: 600; color: {GetStatusColor(s)};")">@FormatStatus(s)</MudText>
+                <span class="column-count">@columnTasks.Count</span>
+            </div>
+        </div>
+        @if (isExpanded)
+        {
+            <div class="mobile-task-section-body">
+                @foreach (var task in columnTasks)
+                {
+                    var t = task;
+                    <div class="@($"task-card task-card-{task.Status.ToString().ToLowerInvariant()}")" style="display: flex; align-items: center; justify-content: space-between;">
+                        <div @onclick="() => SelectTask(t)" style="flex: 1;">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600; color: #e6edf3;">@task.Title</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #6b7280; margin-top: 2px;">@task.CreatedAt.ToString("MMM d")</MudText>
+                        </div>
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                            @foreach (var target in new[] { TaskItemStatus.Backlog, TaskItemStatus.ToDo, TaskItemStatus.InProgress, TaskItemStatus.Review, TaskItemStatus.Done, TaskItemStatus.Archived })
+                            {
+                                if (target != task.Status)
+                                {
+                                    var ts = target;
+                                    <MudMenuItem OnClick="() => MoveTaskMobile(t, ts)">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="@($"width:8px;height:8px;border-radius:50%;background:{GetStatusColor(ts)};")"></span>
+                                            @FormatStatus(ts)
+                                        </div>
+                                    </MudMenuItem>
+                                }
+                            }
+                        </MudMenu>
+                    </div>
+                }
+                @if (!columnTasks.Any())
+                {
+                    <MudText Typo="Typo.caption" Style="color: #484f58; text-align: center; padding: 12px;">No tasks</MudText>
+                }
+            </div>
+        }
+    </div>
+}
+
+@* Task Detail Panel *@
+@if (_selectedTask is not null)
+{
+    <MudOverlay Visible="true" DarkBackground="true" OnClick="@(() => _selectedTask = null)" />
+    <div class="atlas-detail-panel" style="z-index: 1001;">
+        <MudPaper Class="pa-6" Elevation="4" Style="@($"background: #161b22; border-left: 4px solid {GetStatusColor(_selectedTask.Status)}; border: 1px solid rgba(255,255,255,0.1);")">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-4">
+                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">@_selectedTask.Title</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="@(() => _selectedTask = null)" />
+            </MudStack>
+            <MudStack Spacing="3">
+                <div>
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">Status</MudText>
+                    <MudChip T="string" Size="Size.Small" Style="@($"background: {GetStatusColor(_selectedTask.Status)}20; color: {GetStatusColor(_selectedTask.Status)};")">
+                        @FormatStatus(_selectedTask.Status)
+                    </MudChip>
+                </div>
+                <div>
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">Priority</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="@GetPriorityColor(_selectedTask.Priority)">@_selectedTask.Priority</MudChip>
+                </div>
+                @if (!string.IsNullOrEmpty(_selectedTask.Description))
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #8b949e;">Description</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #c9d1d9; margin-top: 4px;">@_selectedTask.Description</MudText>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_selectedTask.AssignedTo))
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #8b949e;">Assigned To</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.AssignedTo</MudText>
+                    </div>
+                }
+                <div>
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">Created</MudText>
+                    <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.CreatedAt.ToString("MMM d, yyyy h:mm tt")</MudText>
+                </div>
+                @if (_selectedTask.UpdatedAt.HasValue)
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #8b949e;">Updated</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.UpdatedAt.Value.ToString("MMM d, yyyy h:mm tt")</MudText>
+                    </div>
+                }
+                @if (_selectedTask.IsScheduled)
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #8b949e;">Scheduled</MudText>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Style="color: #3b82f6;" />
+                            <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.ScheduledAt!.Value.ToString("MMM d, yyyy h:mm tt")</MudText>
+                        </MudStack>
+                    </div>
+                }
+                @if (_selectedTask.IsRecurring)
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #8b949e;">Recurrence</MudText>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Repeat" Size="Size.Small" Style="color: #a855f7;" />
+                            <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@FormatRecurrence(_selectedTask)</MudText>
+                        </MudStack>
+                    </div>
+                }
+                @if (_selectedTask.NextRunAt.HasValue)
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color: #8b949e;">Next Run</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.NextRunAt.Value.ToString("MMM d, yyyy h:mm tt")</MudText>
+                    </div>
+                }
+            </MudStack>
+        </MudPaper>
+    </div>
+}
+
+@* Reject Message Dialog — bottom sheet on mobile, centered on desktop *@
+@if (_showRejectDialog)
+{
+    <div class="reject-overlay" @onclick="CancelReject">
+        <div class="reject-sheet" @onclick:stopPropagation="true">
+            <div class="reject-handle"></div>
+            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Move Back to In Progress</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">Explain why this task can't be completed:</MudText>
+            <MudTextField @bind-Value="_rejectMessage" Label="Reason" Lines="4" Variant="Variant.Outlined" Class="mb-4"
+                          AutoFocus="true" Placeholder="What needs to change?" />
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                <MudButton OnClick="CancelReject" Style="text-transform: none;">Cancel</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="ConfirmReject" Style="text-transform: none;">Send Back</MudButton>
+            </MudStack>
+        </div>
+    </div>
+}
+
+@* Create Task Dialog *@
+@if (_createDialogVisible)
+{
+    <div class="reject-overlay" @onclick="@(() => _createDialogVisible = false)">
+    <div class="create-task-dialog" @onclick:stopPropagation="true">
+        <MudPaper Class="pa-6" Elevation="4" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+            <MudText Typo="Typo.h6" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Create New Task</MudText>
+            <MudTextField @bind-Value="_newTitle" Label="Title" Required="true" Class="mb-3" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_newDescription" Label="Description" Lines="3" Class="mb-3" Variant="Variant.Outlined" />
+            <MudSelect @bind-Value="_newPriority" Label="Priority" Class="mb-3" Variant="Variant.Outlined">
+                @foreach (var p in Enum.GetValues<Priority>())
+                {
+                    <MudSelectItem Value="p">@p</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField @bind-Value="_newAssignedTo" Label="Assigned To" Class="mb-3" Variant="Variant.Outlined" />
+
+            @* Schedule Section *@
+            <MudDivider Class="my-3" />
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Style="color: #8b949e;" />
+                <MudText Typo="Typo.subtitle2" Style="color: #8b949e; font-weight: 600;">Schedule</MudText>
+            </MudStack>
+
+            <MudDatePicker @bind-Date="_newScheduledDate" Label="Scheduled Date" Class="mb-3" Variant="Variant.Outlined"
+                           Placeholder="Optional" Clearable="true" DateFormat="MMM d, yyyy" />
+            <MudTimePicker @bind-Time="_newScheduledTime" Label="Scheduled Time" Class="mb-3" Variant="Variant.Outlined"
+                           Placeholder="Optional" Clearable="true" />
+
+            <MudSelect @bind-Value="_newRecurrenceType" Label="Repeat" Class="mb-3" Variant="Variant.Outlined">
+                <MudSelectItem Value="RecurrenceType.None">No repeat</MudSelectItem>
+                <MudSelectItem Value="RecurrenceType.Daily">Daily</MudSelectItem>
+                <MudSelectItem Value="RecurrenceType.Weekly">Weekly</MudSelectItem>
+                <MudSelectItem Value="RecurrenceType.Biweekly">Every 2 weeks</MudSelectItem>
+                <MudSelectItem Value="RecurrenceType.Monthly">Monthly</MudSelectItem>
+            </MudSelect>
+
+            @if (_newRecurrenceType == RecurrenceType.Weekly || _newRecurrenceType == RecurrenceType.Biweekly)
+            {
+                <MudText Typo="Typo.caption" Class="mb-2" Style="color: #8b949e;">Repeat on</MudText>
+                <MudStack Row="true" Spacing="1" Class="mb-3" Style="flex-wrap: wrap;">
+                    @foreach (var day in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
+                    {
+                        var d = day;
+                        var selected = _selectedDays.Contains(d);
+                        <MudButton Size="Size.Small" Variant="@(selected ? Variant.Filled : Variant.Outlined)"
+                                   Color="@(selected ? Color.Primary : Color.Default)"
+                                   OnClick="() => ToggleDay(d)"
+                                   Style="min-width: 44px; text-transform: none; border-radius: 20px; padding: 4px 8px;">
+                            @d
+                        </MudButton>
+                    }
+                </MudStack>
+            }
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-2" Style="padding-bottom: 16px;">
+                <MudButton OnClick="@(() => _createDialogVisible = false)" Style="text-transform: none;">Cancel</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateTask" Style="text-transform: none;">Create</MudButton>
+            </MudStack>
+        </MudPaper>
+    </div>
+    </div>
+}
+
+@code {
+    private List<TaskItem> _tasks = new();
+    private TaskItem? _selectedTask;
+    private TaskItem? _draggedTask;
+    private HashSet<TaskItemStatus> _mobileExpanded = new() { TaskItemStatus.ToDo, TaskItemStatus.InProgress };
+
+    private void ToggleMobileSection(TaskItemStatus status)
+    {
+        if (!_mobileExpanded.Remove(status))
+            _mobileExpanded.Add(status);
+    }
+    private bool _createDialogVisible;
+    private bool _showRejectDialog;
+    private string _rejectMessage = "";
+    private string _newTitle = "";
+    private string _newDescription = "";
+    private Priority _newPriority = Priority.Medium;
+    private string? _newAssignedTo;
+    private DateTime? _newScheduledDate;
+    private TimeSpan? _newScheduledTime;
+    private RecurrenceType _newRecurrenceType = RecurrenceType.None;
+    private HashSet<string> _selectedDays = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _tasks = (await TaskRepo.GetAllAsync()).ToList(); } catch { }
+    }
+
+    private void OnDragStart(TaskItem task) => _draggedTask = task;
+
+    private async Task OnDrop(TaskItemStatus newStatus)
+    {
+        if (_draggedTask is null) return;
+
+        // If dragging from Review to InProgress, show reject dialog
+        if (_draggedTask.Status == TaskItemStatus.Review && newStatus == TaskItemStatus.InProgress)
+        {
+            _rejectMessage = "";
+            _showRejectDialog = true;
+            return;
+        }
+
+        await MoveTask(_draggedTask, newStatus);
+        _draggedTask = null;
+    }
+
+    private async Task MoveTask(TaskItem task, TaskItemStatus newStatus)
+    {
+        var oldStatus = task.Status;
+        task.Status = newStatus;
+        try
+        {
+            task.UpdatedAt = DateTime.UtcNow;
+            await TaskRepo.UpdateAsync(task);
+            Snackbar.Add($"Moved to {FormatStatus(newStatus)}", MudBlazor.Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            task.Status = oldStatus;
+            Snackbar.Add($"Error: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+
+    private async Task ConfirmReject()
+    {
+        if (_draggedTask is null) return;
+        var message = $"Moved from Review to In Progress: {_rejectMessage}";
+        _draggedTask.Description = string.IsNullOrEmpty(_draggedTask.Description)
+            ? message
+            : $"{_draggedTask.Description}\n\n--- {DateTime.Now:MMM d, h:mm tt} ---\n{message}";
+        await MoveTask(_draggedTask, TaskItemStatus.InProgress);
+        _showRejectDialog = false;
+        _draggedTask = null;
+    }
+
+    private void CancelReject()
+    {
+        _showRejectDialog = false;
+        _draggedTask = null;
+    }
+
+    private async Task MoveTaskMobile(TaskItem task, TaskItemStatus newStatus)
+    {
+        if (task.Status == TaskItemStatus.Review && newStatus == TaskItemStatus.InProgress)
+        {
+            _draggedTask = task;
+            _rejectMessage = "";
+            _showRejectDialog = true;
+            return;
+        }
+        await MoveTask(task, newStatus);
+    }
+
+    private void SelectTask(TaskItem task) => _selectedTask = task;
+
+    private void ToggleDay(string day)
+    {
+        if (!_selectedDays.Remove(day))
+            _selectedDays.Add(day);
+    }
+
+    private void OpenCreateDialog()
+    {
+        _newTitle = "";
+        _newDescription = "";
+        _newPriority = Priority.Medium;
+        _newAssignedTo = null;
+        _newScheduledDate = null;
+        _newScheduledTime = null;
+        _newRecurrenceType = RecurrenceType.None;
+        _selectedDays.Clear();
+        _createDialogVisible = true;
+    }
+
+    private async Task CreateTask()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle)) return;
+        try
+        {
+            DateTime? scheduledAt = null;
+            if (_newScheduledDate.HasValue)
+            {
+                var date = _newScheduledDate.Value;
+                var time = _newScheduledTime ?? TimeSpan.Zero;
+                scheduledAt = new DateTime(date.Year, date.Month, date.Day, time.Hours, time.Minutes, 0, DateTimeKind.Utc);
+            }
+
+            var task = new TaskItem
+            {
+                Title = _newTitle,
+                Description = _newDescription,
+                Priority = _newPriority,
+                AssignedTo = _newAssignedTo,
+                ScheduledAt = scheduledAt,
+                RecurrenceType = _newRecurrenceType,
+                RecurrenceDays = _selectedDays.Count > 0 ? string.Join(",", _selectedDays) : null,
+                NextRunAt = scheduledAt
+            };
+            var created = await TaskRepo.CreateAsync(task);
+            _tasks.Add(created);
+            _createDialogVisible = false;
+            Snackbar.Add("Task created", MudBlazor.Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", MudBlazor.Severity.Error); }
+    }
+
+    private static string FormatStatus(TaskItemStatus status) => status switch
+    {
+        TaskItemStatus.Backlog => "Backlog",
+        TaskItemStatus.ToDo => "To Do",
+        TaskItemStatus.InProgress => "In Progress",
+        TaskItemStatus.Review => "Review",
+        TaskItemStatus.Done => "Done",
+        TaskItemStatus.Archived => "Archived",
+        _ => status.ToString()
+    };
+
+    private static string GetStatusColor(TaskItemStatus status) => status switch
+    {
+        TaskItemStatus.Backlog => "#6b7280",
+        TaskItemStatus.ToDo => "#3b82f6",
+        TaskItemStatus.InProgress => "#f59e0b",
+        TaskItemStatus.Review => "#a855f7",
+        TaskItemStatus.Done => "#22c55e",
+        TaskItemStatus.Archived => "#484f58",
+        _ => "#8b949e"
+    };
+
+    private static string FormatRecurrence(TaskItem task) => task.RecurrenceType switch
+    {
+        RecurrenceType.Daily => "Every day",
+        RecurrenceType.Weekly => string.IsNullOrEmpty(task.RecurrenceDays) ? "Every week" : $"Weekly on {task.RecurrenceDays}",
+        RecurrenceType.Biweekly => string.IsNullOrEmpty(task.RecurrenceDays) ? "Every 2 weeks" : $"Every 2 weeks on {task.RecurrenceDays}",
+        RecurrenceType.Monthly => "Every month",
+        _ => "None"
+    };
+
+    private static Color GetPriorityColor(Priority p) => p switch
+    {
+        Priority.Critical => Color.Error,
+        Priority.High => Color.Warning,
+        Priority.Medium => Color.Info,
+        Priority.Low => Color.Default,
+        _ => Color.Default
+    };
+}

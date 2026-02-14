@@ -1,0 +1,26 @@
+{
+  "name": "@atlas/openclaw-plugin",
+  "version": "1.0.0",
+  "description": "Atlas Control Panel plugin for OpenClaw — automatic activity logging, task management, credential approval, cost tracking, and real-time status monitoring. Enforced at infrastructure level.",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "atlas",
+    "control-panel",
+    "monitoring",
+    "activity-logging",
+    "task-management"
+  ],
+  "author": "Atlas Control Panel",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/atlas-control-panel/openclaw-plugin"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.2.0"
+  }
+}

@@ -1,0 +1,36 @@
+## .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+*.cache
+*.vs/
+*.userprefs
+
+## IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+## Build
+publish/
+artifacts/
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Secrets (never commit)
+**/appsettings.Development.json
+**/appsettings.*.json
+!**/appsettings.json
+
+## SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+## Vault
+.vault

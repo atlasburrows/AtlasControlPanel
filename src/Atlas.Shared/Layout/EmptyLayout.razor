@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@Body
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#3b82f6",
+            Background = "#0d1117",
+            Surface = "#161b22",
+            TextPrimary = "#c9d1d9",
+            TextSecondary = "#8b949e",
+            Error = "#ef4444"
+        }
+    };
+}

@@ -1,0 +1,84 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout Atlas.Shared.Layout.EmptyLayout
+@using Microsoft.AspNetCore.Authorization
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #0d1117;">
+    <MudCard Style="width: 400px; max-width: 90vw; background: #161b22; border: 1px solid #30363d; border-radius: 12px;">
+        <MudCardContent Class="pa-8">
+            <div style="text-align: center; margin-bottom: 24px;">
+                <MudAvatar Size="Size.Large" Style="background: #1c2333; font-size: 2rem; border: 2px solid #30363d; margin: 0 auto;">🌐</MudAvatar>
+                <MudText Typo="Typo.h5" Class="mt-3" Style="font-weight: 600; color: #e6edf3;">Atlas Control Panel</MudText>
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">Sign in to continue</MudText>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_error</MudAlert>
+            }
+
+            <MudTextField @bind-Value="_username" Label="Username" Variant="Variant.Outlined"
+                          Class="mb-4" Immediate="true" Disabled="_loading"
+                          OnKeyDown="OnKeyDown" />
+
+            <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined"
+                          InputType="InputType.Password" Class="mb-6" Immediate="true" Disabled="_loading"
+                          OnKeyDown="OnKeyDown" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       OnClick="DoLogin" Disabled="_loading" Size="Size.Large">
+                @if (_loading)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Sign In
+            </MudButton>
+        </MudCardContent>
+    </MudCard>
+</div>
+
+@code {
+    private string _username = "";
+    private string _password = "";
+    private string _error = "";
+    private bool _loading;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DoLogin();
+    }
+
+    private async Task DoLogin()
+    {
+        _error = "";
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Please enter username and password.";
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            var result = await JS.InvokeAsync<bool>("atlasAuth.login", _username, _password);
+            if (result)
+            {
+                Nav.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                _error = "Invalid username or password.";
+            }
+        }
+        catch
+        {
+            _error = "Login failed. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
