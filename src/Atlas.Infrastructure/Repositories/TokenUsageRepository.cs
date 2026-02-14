@@ -82,10 +82,10 @@ public class TokenUsageRepository(IDbConnectionFactory connectionFactory) : ITok
     public async Task<decimal> GetTotalCostAsync(DateTime from, DateTime to)
     {
         using var connection = connectionFactory.CreateConnection();
-        var result = await connection.QuerySingleAsync<decimal>(
+        var result = await connection.QuerySingleAsync<decimal?>(
             @"SELECT SUM(CAST(CostUsd AS FLOAT)) FROM TokenUsage
               WHERE Timestamp >= @From AND Timestamp < @To",
             new { From = from, To = to });
-        return result;
+        return result ?? 0;
     }
 }

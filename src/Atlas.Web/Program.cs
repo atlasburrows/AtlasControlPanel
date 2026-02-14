@@ -45,6 +45,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddHttpClient();
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5263") });
 builder.Services.AddSingleton<Atlas.Web.Services.TelegramNotificationService>();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -100,6 +101,7 @@ app.UseAuthorization();
 
 app.UseAntiforgery();
 
+app.UseStaticFiles(); // Fallback for debug builds in Production mode
 app.MapStaticAssets();
 
 // Map controllers BEFORE other endpoints
