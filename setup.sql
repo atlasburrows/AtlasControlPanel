@@ -116,7 +116,8 @@ BEGIN
         CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
         UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
         LastAccessedAt DATETIME2,
-        AccessCount INT DEFAULT 0
+        AccessCount INT DEFAULT 0,
+        VaultMode NVARCHAR(20) NOT NULL DEFAULT 'locked'
     );
     CREATE INDEX IX_SecureCredentials_Category ON SecureCredentials(Category);
     CREATE INDEX IX_SecureCredentials_Name ON SecureCredentials(Name);

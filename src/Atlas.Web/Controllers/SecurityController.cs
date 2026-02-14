@@ -55,9 +55,8 @@ public class SecurityController(ISecurityRepository securityRepository, Telegram
             Severity = Severity.Warning
         });
 
-        // Send Telegram push notification with Approve/Deny buttons
-        _ = telegram.SendCredentialRequestNotification(
-            created.Id, dto.CredentialName, dto.Reason, dto.DurationMinutes ?? 30);
+        // Telegram push notification is handled by the OpenClaw plugin (uses public URL)
+        // Do NOT send a duplicate from the server (which uses localhost)
         
         return Created($"api/security/permissions/{created.Id}", created);
     }
