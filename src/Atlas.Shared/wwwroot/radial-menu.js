@@ -224,14 +224,6 @@ window.radialMenu = {
                 el.addEventListener('touchend', function () { el.classList.remove('radial-item-hover'); }, { passive: true });
             });
 
-            // "More" pill to open shelf
-            var morePill = rm._overlay.querySelector('.radial-more-pill');
-            if (morePill) {
-                morePill.addEventListener('click', function () {
-                    rm.close(true);
-                    rm.openShelf();
-                });
-            }
         }, 50);
     },
 
@@ -280,18 +272,6 @@ window.radialMenu = {
             })(item), i * 25);
         }
 
-        // "More modules" pill below the FAB
-        if (rm._premiumModules.length > 0) {
-            var pill = document.createElement('div');
-            pill.className = 'radial-more-pill';
-            pill.style.left = rm._centerX + 'px';
-            pill.style.top = (rm._centerY + 50) + 'px';
-            pill.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>' +
-                             '<span>Modules</span>';
-            overlay.appendChild(pill);
-            setTimeout(function () { pill.classList.add('radial-more-visible'); }, count * 25 + 50);
-        }
-
         rm._haptic(25);
         rm._soundOpen();
         fab.classList.add('radial-fab-active');
@@ -330,6 +310,11 @@ window.radialMenu = {
         if (rm._selectedIndex >= 0 && rm._items[rm._selectedIndex])
             href = rm._items[rm._selectedIndex].href;
         if (href) { rm._haptic(20); rm._soundSelect(); }
+        if (href === '__shelf__') {
+            rm.close(true);
+            rm.openShelf();
+            return;
+        }
         rm.close(true);
         if (href && rm._dotnetRef)
             rm._dotnetRef.invokeMethodAsync('NavigateFromRadial', href);
@@ -339,6 +324,11 @@ window.radialMenu = {
         var rm = window.radialMenu;
         rm._haptic(20);
         rm._soundSelect();
+        if (href === '__shelf__') {
+            rm.close(true);
+            rm.openShelf();
+            return;
+        }
         rm.close(true);
         if (rm._shelfOpen) rm.closeShelf(true);
         if (href && rm._dotnetRef)
