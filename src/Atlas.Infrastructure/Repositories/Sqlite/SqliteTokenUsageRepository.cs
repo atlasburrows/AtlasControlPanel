@@ -119,25 +119,52 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
         return result ?? 0;
     }
 
-    public async Task<IEnumerable<ProjectCostSummary>> GetUsageSummaryByProjectAsync(DateTime from, DateTime to)
+    public async Task<IEnumerable<ProjectCostSummary>> GetUsageSummaryByProjectAsync(DateTime from, DateTime to, int inactiveDaysThreshold = 7)
     {
         using var connection = connectionFactory.CreateConnection();
+        var now = DateTime.UtcNow;
         var result = await connection.QueryAsync<ProjectCostSummary>(
-            @"SELECT 
-                Project,
-                SUM(CAST(CostUsd AS REAL)) as TotalCost,
-                SUM(InputTokens) as TotalInputTokens,
-                SUM(OutputTokens) as TotalOutputTokens,
-                COUNT(*) as RequestCount,
-                COUNT(DISTINCT DATE(Timestamp)) as DaysActive,
-                CASE WHEN COUNT(DISTINCT DATE(Timestamp)) > 0 
-                     THEN SUM(CAST(CostUsd AS REAL)) / COUNT(DISTINCT DATE(Timestamp))
-                     ELSE 0 END as AverageDailyCost
-              FROM TokenUsage
-              WHERE Timestamp >= @From AND Timestamp < @To AND Project IS NOT NULL
-              GROUP BY Project
-              ORDER BY TotalCost DESC",
-            new { From = from.ToString("O"), To = to.ToString("O") });
+            @"WITH ProjectTotals AS (
+                SELECT 
+                    Project,
+                    SUM(CAST(CostUsd AS REAL)) as TotalCost,
+                    SUM(InputTokens) as TotalInputTokens,
+                    SUM(OutputTokens) as TotalOutputTokens,
+                    COUNT(*) as RequestCount,
+                    COUNT(DISTINCT DATE(Timestamp)) as DaysActive,
+                    MAX(Timestamp) as LastActivity
+                FROM TokenUsage
+                WHERE Timestamp >= @From AND Timestamp < @To AND Project IS NOT NULL
+                GROUP BY Project
+              )
+              SELECT 
+                pt.Project,
+                pt.TotalCost,
+                pt.TotalInputTokens,
+                pt.TotalOutputTokens,
+                pt.RequestCount,
+                pt.DaysActive,
+                CASE WHEN pt.DaysActive > 0 THEN pt.TotalCost / pt.DaysActive ELSE 0 END as AverageDailyCost,
+                pt.LastActivity,
+                CAST(julianday(@Now) - julianday(pt.LastActivity) AS INTEGER) as DaysSinceLastActivity,
+                CASE WHEN CAST(julianday(@Now) - julianday(pt.LastActivity) AS INTEGER) <= @InactiveDaysThreshold THEN 1 ELSE 0 END as IsActive,
+                COALESCE((SELECT SUM(CAST(CostUsd AS REAL)) / 7.0 FROM TokenUsage 
+                    WHERE Project = pt.Project AND Timestamp >= @R7 AND Timestamp < @Now), 0) as RollingAvg7Day,
+                COALESCE((SELECT SUM(CAST(CostUsd AS REAL)) / 14.0 FROM TokenUsage 
+                    WHERE Project = pt.Project AND Timestamp >= @R14 AND Timestamp < @Now), 0) as RollingAvg14Day,
+                COALESCE((SELECT SUM(CAST(CostUsd AS REAL)) / 30.0 FROM TokenUsage 
+                    WHERE Project = pt.Project AND Timestamp >= @R30 AND Timestamp < @Now), 0) as RollingAvg30Day
+              FROM ProjectTotals pt
+              ORDER BY pt.TotalCost DESC",
+            new { 
+                From = from.ToString("O"), 
+                To = to.ToString("O"), 
+                Now = now.ToString("O"),
+                InactiveDaysThreshold = inactiveDaysThreshold,
+                R7 = now.AddDays(-7).ToString("O"),
+                R14 = now.AddDays(-14).ToString("O"),
+                R30 = now.AddDays(-30).ToString("O")
+            });
         return result.ToList();
     }
 

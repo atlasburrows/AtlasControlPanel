@@ -32,6 +32,12 @@ public class ProjectCostSummary
     public int RequestCount { get; set; }
     public int DaysActive { get; set; }
     public decimal AverageDailyCost { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime LastActivity { get; set; }
+    public int DaysSinceLastActivity { get; set; }
+    public decimal RollingAvg7Day { get; set; }
+    public decimal RollingAvg14Day { get; set; }
+    public decimal RollingAvg30Day { get; set; }
 }
 
 public class TopExpensiveSession

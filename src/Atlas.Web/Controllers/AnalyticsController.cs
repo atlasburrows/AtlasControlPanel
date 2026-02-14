@@ -112,14 +112,15 @@ public class AnalyticsController(
     /// Get cost breakdown by project
     /// </summary>
     [HttpGet("cost/by-project")]
-    public async Task<IActionResult> GetCostByProject([FromQuery] int days = 30)
+    public async Task<IActionResult> GetCostByProject([FromQuery] int days = 30, [FromQuery] int inactiveDays = 7)
     {
         if (days <= 0) days = 30;
+        if (inactiveDays <= 0) inactiveDays = 7;
 
         var to = DateTime.UtcNow.Date.AddDays(1);
         var from = to.AddDays(-days);
 
-        var costs = await tokenUsageRepository.GetUsageSummaryByProjectAsync(from, to);
+        var costs = await tokenUsageRepository.GetUsageSummaryByProjectAsync(from, to, inactiveDays);
         return Ok(costs);
     }
 

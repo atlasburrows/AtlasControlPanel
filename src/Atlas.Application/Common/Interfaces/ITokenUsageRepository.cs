@@ -11,5 +11,5 @@ public interface ITokenUsageRepository
     Task<List<DailyCostPoint>> GetUsageSummaryByDayAsync(DateTime from, DateTime to);
     Task<List<SessionCostBreakdown>> GetUsageSummaryBySessionAsync(DateTime from, DateTime to);
     Task<decimal> GetTotalCostAsync(DateTime from, DateTime to);
-    Task<IEnumerable<ProjectCostSummary>> GetUsageSummaryByProjectAsync(DateTime from, DateTime to);
+    Task<IEnumerable<ProjectCostSummary>> GetUsageSummaryByProjectAsync(DateTime from, DateTime to, int inactiveDaysThreshold = 7);
 }
