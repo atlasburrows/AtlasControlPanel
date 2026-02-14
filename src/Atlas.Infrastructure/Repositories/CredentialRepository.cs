@@ -49,7 +49,8 @@ public class CredentialRepository(IDbConnectionFactory connectionFactory, ICrede
             credential.Category,
             credential.Username,
             credential.Description,
-            credential.StorageKey
+            credential.StorageKey,
+            VaultMode = credential.VaultMode ?? "locked"
         }, commandType: CommandType.StoredProcedure);
         credential.Id = id;
         credential.StorageKey = "********"; // Don't return the encrypted value
@@ -78,5 +79,19 @@ public class CredentialRepository(IDbConnectionFactory connectionFactory, ICrede
         await RecordAccessAsync(id);
         
         return encryption.Decrypt(cred.StorageKey);
+    }
+
+    public async Task UpdateVaultModeAsync(Guid id, string vaultMode)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync("UPDATE SecureCredentials SET VaultMode = @VaultMode WHERE Id = @Id", 
+            new { VaultMode = vaultMode, Id = id });
+    }
+
+    public async Task<string?> GetVaultModeAsync(Guid id)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<string?>(
+            "SELECT VaultMode FROM SecureCredentials WHERE Id = @Id", new { Id = id });
     }
 }

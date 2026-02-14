@@ -43,9 +43,9 @@ public class SqliteCredentialRepository(IDbConnectionFactory connectionFactory, 
         using var connection = connectionFactory.CreateConnection();
         await connection.ExecuteAsync(
             @"INSERT INTO SecureCredentials (Id, Name, Category, Username, Description, StorageKey, 
-                CreatedAt, UpdatedAt, LastAccessedAt, AccessCount)
+                CreatedAt, UpdatedAt, LastAccessedAt, AccessCount, VaultMode)
               VALUES (@Id, @Name, @Category, @Username, @Description, @StorageKey, 
-                @CreatedAt, @UpdatedAt, @LastAccessedAt, @AccessCount)",
+                @CreatedAt, @UpdatedAt, @LastAccessedAt, @AccessCount, @VaultMode)",
             new
             {
                 Id = credential.Id.ToString(),
@@ -57,7 +57,8 @@ public class SqliteCredentialRepository(IDbConnectionFactory connectionFactory, 
                 CreatedAt = credential.CreatedAt.ToString("O"),
                 UpdatedAt = credential.UpdatedAt.ToString("O"),
                 LastAccessedAt = credential.LastAccessedAt?.ToString("O"),
-                AccessCount = credential.AccessCount
+                AccessCount = credential.AccessCount,
+                VaultMode = credential.VaultMode ?? "locked"
             });
 
         credential.StorageKey = "********"; // Don't return the encrypted value
@@ -95,6 +96,22 @@ public class SqliteCredentialRepository(IDbConnectionFactory connectionFactory, 
         return encryption.Decrypt(row.StorageKey);
     }
 
+    public async Task UpdateVaultModeAsync(Guid id, string vaultMode)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(
+            "UPDATE SecureCredentials SET VaultMode = @VaultMode WHERE Id = @Id",
+            new { VaultMode = vaultMode, Id = id.ToString() });
+    }
+
+    public async Task<string?> GetVaultModeAsync(Guid id)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<string?>(
+            "SELECT VaultMode FROM SecureCredentials WHERE Id = @Id",
+            new { Id = id.ToString() });
+    }
+
     private static SecureCredential MapRow(SecureCredentialRow r, bool maskStorageKey = false) => new()
     {
         Id = Guid.Parse(r.Id),
@@ -106,7 +123,8 @@ public class SqliteCredentialRepository(IDbConnectionFactory connectionFactory, 
         CreatedAt = DateTime.Parse(r.CreatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind),
         UpdatedAt = DateTime.Parse(r.UpdatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind),
         LastAccessedAt = string.IsNullOrEmpty(r.LastAccessedAt) ? null : DateTime.Parse(r.LastAccessedAt, null, System.Globalization.DateTimeStyles.RoundtripKind),
-        AccessCount = r.AccessCount
+        AccessCount = r.AccessCount,
+        VaultMode = r.VaultMode ?? "locked"
     };
 
     private class SecureCredentialRow
@@ -121,5 +139,6 @@ public class SqliteCredentialRepository(IDbConnectionFactory connectionFactory, 
         public string UpdatedAt { get; set; } = "";
         public string? LastAccessedAt { get; set; }
         public int AccessCount { get; set; }
+        public string? VaultMode { get; set; }
     }
 }

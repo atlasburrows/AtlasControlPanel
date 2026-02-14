@@ -13,4 +13,5 @@ public class SecureCredential : BaseEntity
     public DateTime UpdatedAt { get; set; }
     public DateTime? LastAccessedAt { get; set; }
     public int AccessCount { get; set; }
+    public string VaultMode { get; set; } = "locked"; // "locked" or "unlocked"
 }

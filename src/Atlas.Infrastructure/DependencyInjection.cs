@@ -33,6 +33,7 @@ public static class DependencyInjection
             services.AddScoped<ICredentialRepository, SqliteCredentialRepository>();
             services.AddScoped<IChatMessageRepository, SqliteChatMessageRepository>();
             services.AddScoped<IPairingRepository, SqlitePairingRepository>();
+            services.AddScoped<ICredentialAccessLogRepository>(sp => new SqliteCredentialAccessLogRepository(connectionString));
         }
         else
         {
@@ -47,6 +48,7 @@ public static class DependencyInjection
             services.AddScoped<ICredentialRepository, CredentialRepository>();
             services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             services.AddScoped<IPairingRepository, PairingRepository>();
+            services.AddScoped<ICredentialAccessLogRepository, CredentialAccessLogRepository>();
         }
         
         // Data Protection for credential encryption (keys stored per-user)

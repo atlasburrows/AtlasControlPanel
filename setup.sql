@@ -139,6 +139,24 @@ BEGIN
 END
 GO
 
+-- CredentialAccessLog Table
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CredentialAccessLog')
+BEGIN
+    CREATE TABLE CredentialAccessLog (
+        Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+        CredentialId UNIQUEIDENTIFIER NOT NULL,
+        CredentialName NVARCHAR(100) NOT NULL,
+        Requester NVARCHAR(200),
+        AccessedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+        VaultMode NVARCHAR(20) NOT NULL DEFAULT 'locked',
+        AutoApproved BIT NOT NULL DEFAULT 0,
+        Details NVARCHAR(MAX)
+    );
+    CREATE INDEX IX_CredentialAccessLog_CredentialId ON CredentialAccessLog(CredentialId);
+    CREATE INDEX IX_CredentialAccessLog_AccessedAt ON CredentialAccessLog(AccessedAt DESC);
+END
+GO
+
 -- SystemStatus Table
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SystemStatus')
 BEGIN

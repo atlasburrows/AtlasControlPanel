@@ -11,4 +11,6 @@ public interface ICredentialRepository
     Task DeleteAsync(Guid id);
     Task RecordAccessAsync(Guid id);
     Task<string?> GetDecryptedStorageKeyAsync(Guid id);
+    Task UpdateVaultModeAsync(Guid id, string vaultMode);
+    Task<string?> GetVaultModeAsync(Guid id);
 }

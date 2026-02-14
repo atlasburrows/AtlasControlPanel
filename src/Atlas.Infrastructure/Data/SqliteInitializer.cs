@@ -106,7 +106,8 @@ public static class SqliteInitializer
                 CreatedAt TEXT NOT NULL,
                 UpdatedAt TEXT NOT NULL,
                 LastAccessedAt TEXT,
-                AccessCount INTEGER NOT NULL DEFAULT 0
+                AccessCount INTEGER NOT NULL DEFAULT 0,
+                VaultMode TEXT NOT NULL DEFAULT 'locked'
             );
 
             -- ChatMessages table
@@ -115,6 +116,18 @@ public static class SqliteInitializer
                 Role TEXT NOT NULL,
                 Content TEXT NOT NULL,
                 CreatedAt TEXT NOT NULL
+            );
+
+            -- CredentialAccessLog table
+            CREATE TABLE IF NOT EXISTS CredentialAccessLog (
+                Id TEXT PRIMARY KEY,
+                CredentialId TEXT NOT NULL,
+                CredentialName TEXT NOT NULL,
+                Requester TEXT,
+                AccessedAt TEXT NOT NULL,
+                VaultMode TEXT NOT NULL DEFAULT 'locked',
+                AutoApproved INTEGER NOT NULL DEFAULT 0,
+                Details TEXT
             );
 
             -- DailyCosts table
@@ -157,6 +170,8 @@ public static class SqliteInitializer
             CREATE INDEX IF NOT EXISTS idx_pairingcodes_token ON PairingCodes(Token);
             CREATE INDEX IF NOT EXISTS idx_paireddevices_apikey ON PairedDevices(ApiKey);
             CREATE INDEX IF NOT EXISTS idx_paireddevices_active ON PairedDevices(IsActive);
+            CREATE INDEX IF NOT EXISTS idx_credentialaccess_credentialid ON CredentialAccessLog(CredentialId);
+            CREATE INDEX IF NOT EXISTS idx_credentialaccess_accessed ON CredentialAccessLog(AccessedAt DESC);
         ";
 
         command.ExecuteNonQuery();

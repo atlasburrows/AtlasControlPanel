@@ -32,6 +32,63 @@
     </MudItem>
     <MudItem xs="12">
         <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.VpnKey" Style="color: #06b6d4;" />
+                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Credential Vault</MudText>
+            </MudStack>
+
+            @if (_credentialsLoading)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+            }
+            else if (_credentials.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-0">
+                    No credentials stored yet.
+                </MudAlert>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true" Style="background: transparent;">
+                    <thead>
+                        <tr>
+                            <th style="color: #8b949e;">Name</th>
+                            <th style="color: #8b949e;">Category</th>
+                            <th style="color: #8b949e;">Vault Mode</th>
+                            <th style="color: #8b949e;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cred in _credentials)
+                        {
+                            <tr>
+                                <td style="color: #e6edf3;">@cred.Name</td>
+                                <td style="color: #8b949e;">@cred.Category</td>
+                                <td>
+                                    @if (_credentialModes.ContainsKey(cred.Id))
+                                    {
+                                        var mode = _credentialModes[cred.Id];
+                                        var color = mode == "unlocked" ? Color.Success : Color.Warning;
+                                        var icon = mode == "unlocked" ? Icons.Material.Filled.LockOpen : Icons.Material.Filled.Lock;
+                                        <MudChip T="string" Size="Size.Small" Color="@color" Variant="Variant.Outlined" 
+                                                 StartIcon="@icon" Text="@(mode.ToUpper())" />
+                                    }
+                                </td>
+                                <td>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                   Color="Color.Primary" OnClick="() => OpenVaultModeDialog(cred.Id, cred.Name)"
+                                                   Title="Edit vault mode" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center">
                     <MudIcon Icon="@Icons.Material.Filled.PhonelinkSetup" Style="color: #10b981;" />
@@ -124,6 +181,61 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
+<MudDialog @bind-Visible="_vaultModeDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.VpnKey" Style="color: #06b6d4;" />
+            <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Edit Vault Mode</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="4">
+            <MudText Style="color: #8b949e;">
+                <strong>@_editingCredentialName</strong>
+            </MudText>
+
+            <MudStack Spacing="2">
+                <MudText Style="color: #8b949e; font-size: 0.9rem;">Select vault mode:</MudText>
+                <MudRadioGroup T="string" SelectedOption="@_selectedVaultMode" SelectedOptionChanged="@UpdateSelectedVaultMode">
+                    <MudRadio T="string" Option="@("locked")" Color="Color.Primary">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                            <MudText>Locked (requires approval)</MudText>
+                        </MudStack>
+                    </MudRadio>
+                    <MudRadio T="string" Option="@("unlocked")" Color="Color.Primary">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.LockOpen" Size="Size.Small" />
+                            <MudText>Unlocked (auto-approved, notified)</MudText>
+                        </MudStack>
+                    </MudRadio>
+                </MudRadioGroup>
+            </MudStack>
+
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                @if (_selectedVaultMode == "locked")
+                {
+                    <MudText Style="font-size: 0.85rem; color: #8b949e;">
+                        Locked mode requires explicit approval before access is granted. Owner receives a notification.
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Style="font-size: 0.85rem; color: #8b949e;">
+                        Unlocked mode auto-grants access immediately. Owner still receives a notification of the access.
+                    </MudText>
+                }
+            </MudAlert>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _vaultModeDialogVisible = false">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="SaveVaultMode" Disabled="@_savingVaultMode">
+            @(_savingVaultMode ? "Saving..." : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 <MudDialog @bind-Visible="_pairingDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -180,6 +292,16 @@
     private bool _darkMode = true;
     private bool _compactView;
 
+    // Credential Vault
+    private List<SecureCredentialDto> _credentials = new();
+    private Dictionary<Guid, string> _credentialModes = new();
+    private bool _credentialsLoading = true;
+    private bool _vaultModeDialogVisible;
+    private bool _savingVaultMode;
+    private Guid _editingCredentialId;
+    private string _editingCredentialName = "";
+    private string _selectedVaultMode = "locked";
+
     // Pairing
     private List<PairedDeviceDto> _devices = new();
     private bool _devicesLoading = true;
@@ -190,6 +312,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadCredentials();
         await LoadDevices();
     }
 
@@ -284,7 +407,112 @@
         return $"data:image/png;base64,{Convert.ToBase64String(pngBytes)}";
     }
 
+    private async Task LoadCredentials()
+    {
+        _credentialsLoading = true;
+        _credentials.Clear();
+        _credentialModes.Clear();
+        try
+        {
+            using var client = CreateClient();
+            var credentials = await client.GetFromJsonAsync<List<SecureCredentialDto>>("api/security/credentials");
+            if (credentials != null)
+            {
+                _credentials = credentials;
+                // Load vault mode for each credential
+                foreach (var cred in _credentials)
+                {
+                    try
+                    {
+                        var response = await client.GetAsync($"api/security/credentials/{cred.Id}/vault-mode");
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var modeData = await response.Content.ReadFromJsonAsync<VaultModeResponseDto>();
+                            if (modeData != null)
+                            {
+                                _credentialModes[cred.Id] = modeData.VaultMode ?? "locked";
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+        finally
+        {
+            _credentialsLoading = false;
+        }
+    }
+
+    private void OpenVaultModeDialog(Guid credentialId, string credentialName)
+    {
+        _editingCredentialId = credentialId;
+        _editingCredentialName = credentialName;
+        _selectedVaultMode = _credentialModes.ContainsKey(credentialId) ? _credentialModes[credentialId] : "locked";
+        _vaultModeDialogVisible = true;
+    }
+
+    private void UpdateSelectedVaultMode(string newMode)
+    {
+        _selectedVaultMode = newMode;
+    }
+
+    private async Task SaveVaultMode()
+    {
+        if (string.IsNullOrEmpty(_selectedVaultMode))
+            return;
+
+        _savingVaultMode = true;
+        try
+        {
+            using var client = CreateClient();
+            var response = await client.PutAsJsonAsync(
+                $"api/security/credentials/{_editingCredentialId}/vault-mode",
+                new { VaultMode = _selectedVaultMode });
+
+            if (response.IsSuccessStatusCode)
+            {
+                _credentialModes[_editingCredentialId] = _selectedVaultMode;
+                Snackbar.Add($"Vault mode updated to '{_selectedVaultMode}' for {_editingCredentialName}", Severity.Success);
+                _vaultModeDialogVisible = false;
+            }
+            else
+            {
+                Snackbar.Add("Failed to update vault mode.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Error updating vault mode.", Severity.Error);
+        }
+        finally
+        {
+            _savingVaultMode = false;
+        }
+    }
+
     // DTOs
+    private class SecureCredentialDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string? Username { get; set; }
+        public string? Description { get; set; }
+        public string StorageKey { get; set; } = "********";
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public DateTime? LastAccessedAt { get; set; }
+        public int AccessCount { get; set; }
+        public string VaultMode { get; set; } = "locked";
+    }
+
+    private class VaultModeResponseDto
+    {
+        public string? VaultMode { get; set; }
+    }
+
     private class PairedDeviceDto
     {
         public Guid Id { get; set; }
