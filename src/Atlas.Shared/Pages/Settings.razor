@@ -119,9 +119,10 @@
     </MudItem>
 </MudGrid>
 
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <MudDialog @bind-Visible="_pairingDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
     <TitleContent>
@@ -192,12 +193,20 @@
         await LoadDevices();
     }
 
+    private HttpClient CreateClient()
+    {
+        var client = HttpClientFactory.CreateClient();
+        client.BaseAddress = new Uri(Nav.BaseUri);
+        return client;
+    }
+
     private async Task LoadDevices()
     {
         _devicesLoading = true;
         try
         {
-            var devices = await Http.GetFromJsonAsync<List<PairedDeviceDto>>("api/pairing/devices");
+            using var client = CreateClient();
+            var devices = await client.GetFromJsonAsync<List<PairedDeviceDto>>("api/pairing/devices");
             _devices = devices ?? new();
         }
         catch { /* API may be unavailable */ }
@@ -215,7 +224,8 @@
 
         try
         {
-            var response = await Http.PostAsync("api/pairing/generate", null);
+            using var client = CreateClient();
+            var response = await client.PostAsync("api/pairing/generate", null);
             if (response.IsSuccessStatusCode)
             {
                 _pairingData = await response.Content.ReadFromJsonAsync<PairingDataDto>();
@@ -245,7 +255,8 @@
         {
             try
             {
-                await Http.DeleteAsync($"api/pairing/devices/{id}");
+                using var client = CreateClient();
+                await client.DeleteAsync($"api/pairing/devices/{id}");
                 Snackbar.Add("Device disconnected.", Severity.Success);
                 await LoadDevices();
             }
