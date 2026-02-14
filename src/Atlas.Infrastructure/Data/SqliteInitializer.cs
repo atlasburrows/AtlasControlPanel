@@ -159,6 +159,22 @@ public static class SqliteInitializer
                 IsActive INTEGER NOT NULL DEFAULT 1
             );
 
+            -- TokenUsage table for granular cost tracking
+            CREATE TABLE IF NOT EXISTS TokenUsage (
+                Id TEXT PRIMARY KEY,
+                Timestamp TEXT NOT NULL,
+                Provider TEXT NOT NULL,
+                Model TEXT NOT NULL,
+                InputTokens INTEGER NOT NULL DEFAULT 0,
+                OutputTokens INTEGER NOT NULL DEFAULT 0,
+                TotalTokens INTEGER NOT NULL DEFAULT 0,
+                CostUsd REAL NOT NULL DEFAULT 0.0,
+                DurationMs INTEGER,
+                SessionKey TEXT,
+                TaskCategory TEXT,
+                ContextPercent INTEGER
+            );
+
             -- Indexes for common queries
             CREATE INDEX IF NOT EXISTS idx_tasks_status ON Tasks(Status);
             CREATE INDEX IF NOT EXISTS idx_tasks_priority ON Tasks(Priority);
@@ -172,6 +188,9 @@ public static class SqliteInitializer
             CREATE INDEX IF NOT EXISTS idx_paireddevices_active ON PairedDevices(IsActive);
             CREATE INDEX IF NOT EXISTS idx_credentialaccess_credentialid ON CredentialAccessLog(CredentialId);
             CREATE INDEX IF NOT EXISTS idx_credentialaccess_accessed ON CredentialAccessLog(AccessedAt DESC);
+            CREATE INDEX IF NOT EXISTS idx_tokenusage_timestamp ON TokenUsage(Timestamp DESC);
+            CREATE INDEX IF NOT EXISTS idx_tokenusage_model ON TokenUsage(Model);
+            CREATE INDEX IF NOT EXISTS idx_tokenusage_session ON TokenUsage(SessionKey);
         ";
 
         command.ExecuteNonQuery();

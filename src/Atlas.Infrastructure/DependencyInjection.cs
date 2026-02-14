@@ -3,6 +3,7 @@ using Atlas.Infrastructure.Data;
 using Atlas.Infrastructure.Repositories;
 using Atlas.Infrastructure.Repositories.Sqlite;
 using Atlas.Infrastructure.Security;
+using Atlas.Infrastructure.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
 using IDbConnectionFactory = Atlas.Application.Common.Interfaces.IDbConnectionFactory;
@@ -34,6 +35,7 @@ public static class DependencyInjection
             services.AddScoped<IChatMessageRepository, SqliteChatMessageRepository>();
             services.AddScoped<IPairingRepository, SqlitePairingRepository>();
             services.AddScoped<ICredentialAccessLogRepository>(sp => new SqliteCredentialAccessLogRepository(connectionString));
+            services.AddScoped<ITokenUsageRepository, SqliteTokenUsageRepository>();
         }
         else
         {
@@ -49,7 +51,11 @@ public static class DependencyInjection
             services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             services.AddScoped<IPairingRepository, PairingRepository>();
             services.AddScoped<ICredentialAccessLogRepository, CredentialAccessLogRepository>();
+            services.AddScoped<ITokenUsageRepository, TokenUsageRepository>();
         }
+        
+        // Register analytics services
+        services.AddScoped<ICostEfficiencyAnalyzer, CostEfficiencyAnalyzer>();
         
         // Data Protection for credential encryption (keys stored per-user)
         services.AddDataProtection()

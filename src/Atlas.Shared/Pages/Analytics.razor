@@ -1,0 +1,238 @@
+@page "/analytics"
+@using Atlas.Domain.ValueObjects
+@using System.Net.Http.Json
+@using System.Text.Json
+@inject HttpClient HttpClient
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Cost Analytics</MudText>
+
+<!-- Period Selector & Total Cost Display -->
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12" md="6">
+        <MudButtonGroup Variant="Variant.Outlined" Color="Color.Default">
+            <MudButton @onclick="() => SelectPeriod(7)" Variant="@(SelectedDays == 7 ? Variant.Filled : Variant.Outlined)" Color="@(SelectedDays == 7 ? Color.Primary : Color.Default)">7 Days</MudButton>
+            <MudButton @onclick="() => SelectPeriod(30)" Variant="@(SelectedDays == 30 ? Variant.Filled : Variant.Outlined)" Color="@(SelectedDays == 30 ? Color.Primary : Color.Default)">30 Days</MudButton>
+            <MudButton @onclick="() => SelectPeriod(90)" Variant="@(SelectedDays == 90 ? Variant.Filled : Variant.Outlined)" Color="@(SelectedDays == 90 ? Color.Primary : Color.Default)">90 Days</MudButton>
+        </MudButtonGroup>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: right;">
+            <MudText Typo="Typo.caption" Style="color: #8b949e;">Total Cost</MudText>
+            <MudText Typo="Typo.h4" Style="font-weight: 700; color: #22c55e;">
+                @if (AnalyticsData != null)
+                {
+                    <span>$@AnalyticsData.TotalCost.ToString("F2")</span>
+                }
+                else
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                }
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<!-- Row 1: Daily Cost Chart -->
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Daily Cost Trend</MudText>
+            @if (DailyCostSeries != null && DailyCostSeries.Count > 0)
+            {
+                <MudChart ChartType="ChartType.Line" ChartSeries="@DailyCostSeries" XAxisLabels="@DailyCostLabels"
+                          Width="100%" Height="300px"
+                          ChartOptions="@(new ChartOptions { YAxisTicks = 5, LineStrokeWidth = 2 })" />
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">No data available</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<!-- Row 2: Cost by Model & Cost by Session -->
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost by Model</MudText>
+            @if (ModelCostSeries != null && ModelCostSeries.Count > 0)
+            {
+                <MudChart ChartType="ChartType.Donut" ChartSeries="@ModelCostSeries" InputLabels="@ModelLabels"
+                          Width="100%" Height="300px" />
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">No data available</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Top Sessions</MudText>
+            @if (AnalyticsData?.TopSessions != null && AnalyticsData.TopSessions.Count > 0)
+            {
+                <MudStack Spacing="2">
+                    @foreach (var session in AnalyticsData.TopSessions.Take(5))
+                    {
+                        <MudPaper Class="pa-3" Elevation="0" Style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudStack Style="flex: 1;">
+                                    <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3;">@(session.SessionKey ?? "Unknown")</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #8b949e;">@session.RequestCount requests</MudText>
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e;">$@session.TotalCost.ToString("F2")</MudText>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">No data available</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<!-- Row 3: Top Expensive Sessions Table -->
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Most Expensive Requests</MudText>
+            @if (AnalyticsData?.TopSessions != null && AnalyticsData.TopSessions.Count > 0)
+            {
+                <MudDataGrid Items="@(AnalyticsData.TopSessions.AsQueryable())" Striped="true" Hover="true" Style="background: transparent;">
+                    <Columns>
+                        <PropertyColumn Property="x => x.SessionKey" Title="Session" />
+                        <PropertyColumn Property="x => x.TaskCategory" Title="Category" />
+                        <PropertyColumn Property="x => x.RequestCount" Title="Requests" />
+                        <PropertyColumn Property="x => x.TotalCost" Title="Total Cost" Format="$0.00" />
+                        <PropertyColumn Property="x => x.AverageCostPerRequest" Title="Avg Cost/Request" Format="$0.000000" />
+                    </Columns>
+                </MudDataGrid>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">No data available</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<!-- Row 4: Efficiency Recommendations -->
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12">
+        <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost Optimization Recommendations</MudText>
+        @if (AnalyticsData?.Recommendations != null && AnalyticsData.Recommendations.Count > 0)
+        {
+            <MudStack Spacing="2">
+                @foreach (var rec in AnalyticsData.Recommendations)
+                {
+                    <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+                                <MudChip T="string" Icon="@(rec.Priority == 1 ? Icons.Material.Filled.Warning : Icons.Material.Filled.Info)"
+                                         Color="@(rec.Priority == 1 ? Color.Warning : Color.Info)"
+                                         Class="mud-chip-text">
+                                    @(rec.Priority == 1 ? "High Priority" : rec.Priority == 2 ? "Medium Priority" : "Low Priority")
+                                </MudChip>
+                                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3; flex: 1;">@rec.Title</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Style="color: #8b949e;">@rec.Description</MudText>
+                            <MudStack Row="true" Spacing="3">
+                                <MudText Typo="Typo.caption" Style="color: #22c55e; font-weight: 600;">
+                                    Est. Monthly Savings: $@rec.EstimatedMonthlySavings.ToString("F2")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Style="color: #e6edf3;">
+                                    Action: @rec.ActionItems
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+        else
+        {
+            <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">No recommendations available at this time. Your cost usage looks optimal!</MudText>
+            </MudPaper>
+        }
+    </MudItem>
+</MudGrid>
+
+@code {
+    private CostAnalyticsSummary? AnalyticsData;
+    private int SelectedDays = 30;
+    private List<ChartSeries> DailyCostSeries = new();
+    private string[] DailyCostLabels = Array.Empty<string>();
+    private List<ChartSeries> ModelCostSeries = new();
+    private string[] ModelLabels = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAnalyticsAsync();
+    }
+
+    private async Task SelectPeriod(int days)
+    {
+        SelectedDays = days;
+        await LoadAnalyticsAsync();
+    }
+
+    private async Task LoadAnalyticsAsync()
+    {
+        try
+        {
+            var response = await HttpClient.GetAsync($"/api/analytics/dashboard?days={SelectedDays}");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                AnalyticsData = JsonSerializer.Deserialize<CostAnalyticsSummary>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                UpdateCharts();
+            }
+            else
+            {
+                Snackbar.Add("Failed to load analytics", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void UpdateCharts()
+    {
+        if (AnalyticsData == null) return;
+
+        // Daily Cost Chart
+        DailyCostSeries = new()
+        {
+            new ChartSeries
+            {
+                Name = "Daily Cost ($)",
+                Data = AnalyticsData.DailyCosts.Select(d => (double)d.Cost).ToArray()
+            }
+        };
+        DailyCostLabels = AnalyticsData.DailyCosts
+            .Select(d => d.Date.ToString("MMM d"))
+            .ToArray();
+
+        // Model Cost Pie Chart
+        if (AnalyticsData.CostByModel.Count > 0)
+        {
+            ModelCostSeries = new()
+            {
+                new ChartSeries
+                {
+                    Name = "Cost by Model",
+                    Data = AnalyticsData.CostByModel.Select(m => (double)m.TotalCost).ToArray()
+                }
+            };
+            ModelLabels = AnalyticsData.CostByModel.Select(m => m.Model).ToArray();
+        }
+    }
+}
