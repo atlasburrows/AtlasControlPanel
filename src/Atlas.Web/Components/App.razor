@@ -24,7 +24,18 @@
     <script src="_content/Atlas.Shared/chat.js"></script>
     <script src="_content/Atlas.Shared/radial-menu.js"></script>
     <script src="_content/Atlas.Shared/scroll-hide.js"></script>
-    <script src="_framework/blazor.web.js"></script>
+    <script src="_framework/blazor.web.js" autostart="true"></script>
+    <script>
+        // Auto-reconnect on visibility change (PWA resume from background)
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+                // Blazor Server circuit may have disconnected while backgrounded
+                if (Blazor && Blazor.reconnect) {
+                    Blazor.reconnect();
+                }
+            }
+        });
+    </script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');

@@ -23,7 +23,8 @@
 @* Summary Cards — uniform 2-col mobile, 6-col desktop, same height *@
 <MudGrid Spacing="2">
     <MudItem xs="6" md="2">
-        <MudPaper Class="pa-3 summary-card summary-card-blue" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => Nav.NavigateTo("/tasks"))">
+        <a href="/tasks" style="text-decoration: none; color: inherit; display: block; height: 100%;">
+        <MudPaper Class="pa-3 summary-card summary-card-blue" Elevation="0" Style="cursor: pointer; height: 100%;">
             @if (!_tasksLoaded)
             {
                 @CardLoader
@@ -37,9 +38,11 @@
                 </MudStack>
             }
         </MudPaper>
+        </a>
     </MudItem>
     <MudItem xs="6" md="2">
-        <MudPaper Class="pa-3 summary-card summary-card-amber" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => Nav.NavigateTo("/security"))">
+        <a href="/security" style="text-decoration: none; color: inherit; display: block; height: 100%;">
+        <MudPaper Class="pa-3 summary-card summary-card-amber" Elevation="0" Style="cursor: pointer; height: 100%;">
             @if (!_securityLoaded)
             {
                 @CardLoader
@@ -53,6 +56,7 @@
                 </MudStack>
             }
         </MudPaper>
+        </a>
     </MudItem>
     <MudItem xs="6" md="2">
         <MudPaper Class="pa-3 summary-card summary-card-purple" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => _showBalanceInput = true)">
@@ -90,7 +94,8 @@
         </MudPaper>
     </MudItem>
     <MudItem xs="6" md="2">
-        <MudPaper Class="@($"pa-3 summary-card summary-card-{(_healthColor == "green" ? "green" : _healthColor == "yellow" ? "amber" : "red")}")" Elevation="0" Style="cursor: pointer; height: 100%;" @onclick="@(() => Nav.NavigateTo("/monitoring"))">
+        <a href="/monitoring" style="text-decoration: none; color: inherit; display: block; height: 100%;">
+        <MudPaper Class="@($"pa-3 summary-card summary-card-{(_healthColor == "green" ? "green" : _healthColor == "yellow" ? "amber" : "red")}")" Elevation="0" Style="cursor: pointer; height: 100%;">
             @if (!_healthLoaded)
             {
                 @CardLoader
@@ -105,6 +110,7 @@
                 </MudStack>
             }
         </MudPaper>
+        </a>
     </MudItem>
     <MudItem xs="6" md="2">
         <MudPaper Class="pa-3 summary-card summary-card-blue" Elevation="0" Style="height: 100%;">
