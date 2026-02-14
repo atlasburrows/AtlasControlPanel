@@ -31,19 +31,11 @@ jobs:
       - name: Install MAUI workload
         run: dotnet workload install maui-android
 
-      - name: Restore all projects
-        run: |
-          dotnet restore src/Atlas.Domain/Atlas.Domain.csproj
-          dotnet restore src/Atlas.Application/Atlas.Application.csproj
-          dotnet restore src/Atlas.Shared/Atlas.Shared.csproj
-          dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj /p:TargetFrameworks=net10.0-android
-
       - name: Build Android (Debug APK)
         run: |
           dotnet build src/Atlas.MAUI/Atlas.MAUI.csproj \
-            -f net10.0-android \
             -c Debug \
-            --no-restore
+            /p:TargetFrameworks=net10.0-android
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -73,13 +65,6 @@ jobs:
       - name: Install MAUI workload
         run: dotnet workload install maui-android
 
-      - name: Restore all projects
-        run: |
-          dotnet restore src/Atlas.Domain/Atlas.Domain.csproj
-          dotnet restore src/Atlas.Application/Atlas.Application.csproj
-          dotnet restore src/Atlas.Shared/Atlas.Shared.csproj
-          dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj /p:TargetFrameworks=net10.0-android
-
       - name: Build Android (Signed Release)
         env:
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
@@ -89,18 +74,16 @@ jobs:
           if [ -n "$ANDROID_KEYSTORE" ]; then
             echo "$ANDROID_KEYSTORE" | base64 --decode > atlas.keystore
             dotnet publish src/Atlas.MAUI/Atlas.MAUI.csproj \
-              -f net10.0-android \
               -c Release \
-              --no-restore \
+              /p:TargetFrameworks=net10.0-android \
               /p:AndroidSigningKeyStore=atlas.keystore \
               /p:AndroidSigningKeyAlias=atlas \
               /p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD" \
               /p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
           else
             dotnet publish src/Atlas.MAUI/Atlas.MAUI.csproj \
-              -f net10.0-android \
               -c Release \
-              --no-restore
+              /p:TargetFrameworks=net10.0-android
           fi
 
       - name: Upload Android AAB/APK
