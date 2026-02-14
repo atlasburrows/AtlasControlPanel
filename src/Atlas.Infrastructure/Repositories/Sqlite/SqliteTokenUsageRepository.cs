@@ -171,33 +171,45 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
     private const decimal OpusInputPerToken = 15m / 1_000_000m;
     private const decimal OpusOutputPerToken = 75m / 1_000_000m;
 
-    public async Task<RoiSummary> GetRoiSummaryAsync(DateTime from, DateTime to)
+    public async Task<DashboardRoiSummary> GetDashboardRoiAsync(DateTime from, DateTime to)
     {
         using var connection = connectionFactory.CreateConnection();
-        var roi = await connection.QuerySingleAsync<RoiSummary>(
+        var f = from.ToString("O");
+        var t = to.ToString("O");
+
+        var roi = await connection.QuerySingleAsync<DashboardRoiSummary>(
             @"SELECT
-                SUM(CAST(CostUsd AS REAL)) as TotalCost,
-                SUM(CASE WHEN TaskCategory = 'System' THEN CAST(CostUsd AS REAL) ELSE 0 END) as OperationalCost,
-                SUM(CASE WHEN TaskCategory != 'System' OR TaskCategory IS NULL THEN CAST(CostUsd AS REAL) ELSE 0 END) as DevelopmentCost,
-                SUM(CAST(CostUsd AS REAL)) as ActualSpend,
-                SUM(InputTokens * @OpusIn + OutputTokens * @OpusOut) as IfAllOpusSpend,
-                SUM(InputTokens * @OpusIn + OutputTokens * @OpusOut) - SUM(CAST(CostUsd AS REAL)) as ModelTierSavings,
+                SUM(CAST(CostUsd AS REAL)) as TotalUserSpend,
+                SUM(CASE WHEN TaskCategory = 'System' THEN CAST(CostUsd AS REAL) ELSE 0 END) as DashboardOperationCost,
+                CASE WHEN SUM(CAST(CostUsd AS REAL)) > 0
+                     THEN SUM(CASE WHEN TaskCategory = 'System' THEN CAST(CostUsd AS REAL) ELSE 0 END) / SUM(CAST(CostUsd AS REAL)) * 100
+                     ELSE 0 END as DashboardPercent,
+                COUNT(DISTINCT DATE(Timestamp)) as DaysTracked,
                 COUNT(*) as TotalRequests,
                 SUM(CASE WHEN Model NOT LIKE '%opus%' THEN 1 ELSE 0 END) as DelegatedRequests,
-                SUM(CASE WHEN Model LIKE '%opus%' THEN 1 ELSE 0 END) as OpusRequests,
-                CASE WHEN COUNT(*) > 0 THEN SUM(CAST(CostUsd AS REAL)) / COUNT(*) ELSE 0 END as CostPerRequest,
-                CASE WHEN SUM(CAST(CostUsd AS REAL)) > 0 
-                     THEN SUM(CASE WHEN TaskCategory = 'System' THEN CAST(CostUsd AS REAL) ELSE 0 END) / SUM(CAST(CostUsd AS REAL)) * 100 
-                     ELSE 0 END as OperationalPercent,
-                COUNT(DISTINCT DATE(Timestamp)) as DaysTracked
+                SUM(InputTokens * @OpusIn + OutputTokens * @OpusOut) - SUM(CAST(CostUsd AS REAL)) as ModelTierSavings
               FROM TokenUsage
               WHERE Timestamp >= @From AND Timestamp < @To",
-            new { From = from.ToString("O"), To = to.ToString("O"), OpusIn = (double)OpusInputPerToken, OpusOut = (double)OpusOutputPerToken });
+            new { From = f, To = t, OpusIn = (double)OpusInputPerToken, OpusOut = (double)OpusOutputPerToken });
 
-        if (roi.DaysTracked > 0 && roi.ModelTierSavings > 0)
-        {
-            roi.ProjectedMonthlySavings = roi.ModelTierSavings / roi.DaysTracked * 30;
-        }
+        if (roi.DaysTracked > 0)
+            roi.DailyAverageCost = roi.DashboardOperationCost / roi.DaysTracked;
+
+        if (roi.DelegatedRequests == 0 && roi.TotalUserSpend > 0 && roi.DaysTracked > 0)
+            roi.PotentialMonthlySavings = (roi.TotalUserSpend * 0.4m * 0.95m) / roi.DaysTracked * 30;
+        else if (roi.ModelTierSavings > 0 && roi.DaysTracked > 0)
+            roi.PotentialMonthlySavings = roi.ModelTierSavings / roi.DaysTracked * 30;
+
+        roi.ActivityLogCount = await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM ActivityLogs WHERE Timestamp >= @From AND Timestamp < @To", new { From = f, To = t });
+        roi.TaskCount = await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM Tasks WHERE CreatedAt >= @From AND CreatedAt < @To", new { From = f, To = t });
+        try { roi.CredentialRequestCount = await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM CredentialAccessLog WHERE Timestamp >= @From AND Timestamp < @To", new { From = f, To = t }); } catch { }
+        try { roi.MessageRelayCount = await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM ChatMessages WHERE Timestamp >= @From AND Timestamp < @To", new { From = f, To = t }); } catch { }
+        roi.MonitoringCheckCount = await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM TokenUsage WHERE TaskCategory = 'System' AND Timestamp >= @From AND Timestamp < @To", new { From = f, To = t });
 
         return roi;
     }

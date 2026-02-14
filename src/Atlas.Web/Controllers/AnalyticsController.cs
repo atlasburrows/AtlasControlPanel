@@ -109,17 +109,17 @@ public class AnalyticsController(
     }
 
     /// <summary>
-    /// Get ROI summary — cost to run vs savings
+    /// Get dashboard ROI — cost to run, operation breakdown, and savings
     /// </summary>
     [HttpGet("roi")]
-    public async Task<IActionResult> GetRoiSummary([FromQuery] int days = 30)
+    public async Task<IActionResult> GetDashboardRoi([FromQuery] int days = 30)
     {
         if (days <= 0) days = 30;
 
         var to = DateTime.UtcNow.Date.AddDays(1);
         var from = to.AddDays(-days);
 
-        var roi = await tokenUsageRepository.GetRoiSummaryAsync(from, to);
+        var roi = await tokenUsageRepository.GetDashboardRoiAsync(from, to);
         return Ok(roi);
     }
 
