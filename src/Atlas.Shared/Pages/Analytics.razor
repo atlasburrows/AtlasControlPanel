@@ -181,14 +181,27 @@
                                 </div>
                             }
 
-                            <!-- Worthiness gauge -->
+                            <!-- Worthiness gauge + actions -->
                             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                                 <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
                                     <div style="@($"height: 100%; width: {rec.WorthinessPercent}%; background: {worthColor}; border-radius: 3px; transition: width 0.3s ease;")"></div>
                                 </div>
-                                <MudText Typo="Typo.caption" Style="@($"color: {worthColor}; font-weight: 700; white-space: nowrap; min-width: 100px; text-align: right;")">
+                                <MudText Typo="Typo.caption" Style="@($"color: {worthColor}; font-weight: 700; white-space: nowrap;")">
                                     @rec.WorthinessPercent% @worthLabel
                                 </MudText>
+                                @if (!rec.ActionItems.StartsWith("✅"))
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                                               Style="min-width: 60px; height: 28px; font-size: 0.7rem;"
+                                               @onclick="() => ActionRecommendation(rec.Title, true)">Apply</MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default"
+                                               Style="min-width: 60px; height: 28px; font-size: 0.7rem; color: #6b7280;"
+                                               @onclick="() => ActionRecommendation(rec.Title, false)">Reject</MudButton>
+                                }
+                                else
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text" Style="font-size: 0.65rem;">Applied</MudChip>
+                                }
                             </MudStack>
                         </div>
                     }
@@ -430,6 +443,28 @@
             else
             {
                 Snackbar.Add("Failed to load analytics", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ActionRecommendation(string title, bool apply)
+    {
+        try
+        {
+            var payload = new { Title = title, Action = apply ? "applied" : "rejected" };
+            var response = await HttpClient.PostAsJsonAsync("/api/analytics/recommendation/action", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add(apply ? $"Applied: {title}" : $"Rejected — a new suggestion will replace it", apply ? Severity.Success : Severity.Info);
+                await LoadAnalyticsAsync(); // Refresh to show updated state
+            }
+            else
+            {
+                Snackbar.Add("Failed to save action", Severity.Error);
             }
         }
         catch (Exception ex)

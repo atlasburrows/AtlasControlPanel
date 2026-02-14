@@ -2,6 +2,7 @@ using Atlas.Application.Common.Interfaces;
 using Atlas.Domain.Entities;
 using Atlas.Domain.ValueObjects;
 using Atlas.Infrastructure.Services;
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atlas.Web.Controllers;
@@ -10,7 +11,8 @@ namespace Atlas.Web.Controllers;
 [Route("api/analytics")]
 public class AnalyticsController(
     ITokenUsageRepository tokenUsageRepository,
-    ICostEfficiencyAnalyzer costEfficiencyAnalyzer) : ControllerBase
+    ICostEfficiencyAnalyzer costEfficiencyAnalyzer,
+    IDbConnectionFactory connectionFactory) : ControllerBase
 {
     /// <summary>
     /// Log a single token usage record
@@ -222,6 +224,20 @@ public class AnalyticsController(
             })
             .ToList();
 
+        // Filter out rejected and mark applied recommendations
+        using var filterConn = connectionFactory.CreateConnection();
+        var rejectedHashes = (await filterConn.QueryAsync<string>(
+            "SELECT RecommendationHash FROM CostOptimizationActions WHERE Action = 'rejected'")).ToHashSet();
+        var appliedHashes = (await filterConn.QueryAsync<string>(
+            "SELECT RecommendationHash FROM CostOptimizationActions WHERE Action = 'applied'")).ToHashSet();
+
+        recommendations = recommendations.Where(r => !rejectedHashes.Contains(ComputeHash(r.Title))).ToList();
+        foreach (var rec in recommendations)
+        {
+            if (appliedHashes.Contains(ComputeHash(rec.Title)))
+                rec.ActionItems = "✅ Applied — " + rec.ActionItems;
+        }
+
         return Ok(new CostAnalyticsSummary
         {
             TotalCost = totalCost,
@@ -238,7 +254,55 @@ public class AnalyticsController(
             Recommendations = recommendations
         });
     }
+
+    /// <summary>
+    /// Apply or reject a cost optimization recommendation
+    /// </summary>
+    [HttpPost("recommendation/action")]
+    public async Task<IActionResult> RecommendationAction([FromBody] RecommendationActionDto dto)
+    {
+        if (string.IsNullOrEmpty(dto.Title) || (dto.Action != "applied" && dto.Action != "rejected"))
+            return BadRequest("Title and action (applied/rejected) are required");
+
+        var hash = ComputeHash(dto.Title);
+        using var connection = connectionFactory.CreateConnection();
+
+        // Upsert - replace if same hash+action exists
+        await connection.ExecuteAsync(
+            @"DELETE FROM CostOptimizationActions WHERE RecommendationHash = @Hash;
+              INSERT INTO CostOptimizationActions (RecommendationTitle, RecommendationHash, Action, ActionDetails, Status)
+              VALUES (@Title, @Hash, @Action, @Details, @Status)",
+            new { 
+                Hash = hash, 
+                dto.Title, 
+                dto.Action, 
+                Details = dto.Details,
+                Status = dto.Action == "applied" ? "pending" : "done"
+            });
+
+        return Ok(new { hash, action = dto.Action, status = dto.Action == "applied" ? "pending" : "done" });
+    }
+
+    /// <summary>
+    /// Get all recommendation actions (applied/rejected history)
+    /// </summary>
+    [HttpGet("recommendation/actions")]
+    public async Task<IActionResult> GetRecommendationActions()
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var actions = await connection.QueryAsync(
+            "SELECT Id, RecommendationTitle, RecommendationHash, Action, ActionDetails, CreatedAt, ImplementedAt, Status FROM CostOptimizationActions ORDER BY CreatedAt DESC");
+        return Ok(actions);
+    }
+
+    private static string ComputeHash(string input)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(bytes)[..16].ToLowerInvariant();
+    }
 }
+
+public record RecommendationActionDto(string Title, string Action, string? Details = null);
 
 public record TokenUsageDto(
     string Provider,
