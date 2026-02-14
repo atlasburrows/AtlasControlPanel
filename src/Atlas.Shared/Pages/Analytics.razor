@@ -52,7 +52,62 @@
     </MudItem>
 </MudGrid>
 
-<!-- Row 2: Cost by Model & Cost by Session -->
+<!-- Row 2: Cost by Project -->
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost by Project</MudText>
+            @if (AnalyticsData?.CostByProject != null && AnalyticsData.CostByProject.Count > 0)
+            {
+                <MudStack Spacing="2">
+                    @{ var maxCost = AnalyticsData.CostByProject.Max(p => p.TotalCost); }
+                    @foreach (var project in AnalyticsData.CostByProject)
+                    {
+                        var pct = maxCost > 0 ? (double)(project.TotalCost / maxCost) * 100 : 0;
+                        var totalPct = AnalyticsData.TotalCost > 0 ? (double)(project.TotalCost / AnalyticsData.TotalCost) * 100 : 0;
+                        var barColor = GetProjectColor(project.Project);
+                        <div style="cursor: pointer;" @onclick="() => ToggleProjectDetail(project.Project)">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-1">
+                                <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    @project.Project
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e; white-space: nowrap;">
+                                    $@project.TotalCost.ToString("F2")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Style="color: #8b949e; white-space: nowrap; min-width: 40px; text-align: right;">
+                                    @totalPct.ToString("F0")%
+                                </MudText>
+                            </MudStack>
+                            <div style="height: 6px; background: rgba(255,255,255,0.04); border-radius: 3px; overflow: hidden;">
+                                <div style="height: 100%; width: @(pct.ToString("F1"))%; background: @barColor; border-radius: 3px; transition: width 0.3s ease;"></div>
+                            </div>
+                            @if (_expandedProject == project.Project)
+                            {
+                                <MudStack Row="true" Spacing="3" Class="mt-2" Style="padding-left: 4px;">
+                                    <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Api" Size="Size.Small" Style="vertical-align: middle; color: #484f58;" /> @project.RequestCount requests
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Input" Size="Size.Small" Style="vertical-align: middle; color: #484f58;" /> @FormatTokens(project.TotalInputTokens) in
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Output" Size="Size.Small" Style="vertical-align: middle; color: #484f58;" /> @FormatTokens(project.TotalOutputTokens) out
+                                    </MudText>
+                                </MudStack>
+                            }
+                        </div>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Style="color: #8b949e;">No project data available</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<!-- Row 3: Cost by Model & Top Sessions -->
 <MudGrid Spacing="3" Class="mb-4">
     <MudItem xs="12" md="6">
         <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
@@ -170,6 +225,27 @@
     private string[] DailyCostLabels = Array.Empty<string>();
     private List<ChartSeries> ModelCostSeries = new();
     private string[] ModelLabels = Array.Empty<string>();
+    private string? _expandedProject;
+
+    private static readonly string[] ProjectColors = { "#3b82f6", "#f59e0b", "#22c55e", "#a855f7", "#06b6d4", "#ef4444", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316" };
+
+    private string GetProjectColor(string project)
+    {
+        var idx = Math.Abs(project.GetHashCode()) % ProjectColors.Length;
+        return ProjectColors[idx];
+    }
+
+    private string FormatTokens(int tokens)
+    {
+        if (tokens >= 1_000_000) return $"{tokens / 1_000_000.0:F1}M";
+        if (tokens >= 1_000) return $"{tokens / 1_000.0:F0}k";
+        return tokens.ToString();
+    }
+
+    private void ToggleProjectDetail(string project)
+    {
+        _expandedProject = _expandedProject == project ? null : project;
+    }
 
     protected override async Task OnInitializedAsync()
     {
