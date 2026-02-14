@@ -156,9 +156,9 @@
             }
 
             <!-- Cost Optimization Recommendations -->
+            <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2" Style="color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Cost Optimization</MudText>
             @if (AnalyticsData?.Recommendations != null && AnalyticsData.Recommendations.Count > 0)
             {
-                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2" Style="color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Cost Optimization</MudText>
                 <MudStack Spacing="2">
                     @foreach (var rec in AnalyticsData.Recommendations)
                     {
@@ -207,6 +207,14 @@
                     }
                 </MudStack>
             }
+            else
+            {
+                <div style="background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.15); border-radius: 10px; padding: 16px; text-align: center;">
+                    <MudIcon Icon="@Icons.Material.Filled.Verified" Style="color: #22c55e; font-size: 2rem;" />
+                    <MudText Typo="Typo.body1" Style="font-weight: 600; color: #22c55e; margin-top: 4px;">Running at Maximum Efficiency</MudText>
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">No further optimizations found. Your setup is cost-optimized.</MudText>
+                </div>
+            }
 
             <!-- Optimization History -->
             @if (OptHistory != null && OptHistory.Count > 0)
@@ -218,40 +226,88 @@
                         <span style="color: #22c55e; margin-left: 8px;">💰 $@OptTotalSaved.ToString("F2") saved all-time</span>
                     }
                 </MudText>
-                <MudStack Spacing="1">
+                <MudStack Spacing="2">
                     @foreach (var item in OptHistory)
                     {
                         var isApplied = item.Action == "applied";
-                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border-left: 3px solid @(isApplied ? "#22c55e" : "#ef4444");">
-                            <MudIcon Icon="@(isApplied ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
-                                     Size="Size.Small" Style="@($"color: {(isApplied ? "#22c55e" : "#ef4444")}; flex-shrink: 0;")" />
-                            <div style="flex: 1; min-width: 0;">
-                                <MudText Typo="Typo.caption" Style="font-weight: 600; color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    @item.RecommendationTitle
-                                </MudText>
-                                @if (isApplied && item.DaysSinceImplementation > 0)
-                                {
-                                    <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.65rem;">
-                                        Applied @item.DaysSinceImplementation days ago
-                                        @if (item.EstimatedMonthlySavings.HasValue)
+                        var missedSavings = !isApplied && item.EstimatedMonthlySavings.HasValue
+                            ? item.EstimatedMonthlySavings.Value / 30 * item.DaysSinceImplementation
+                            : 0m;
+                        <div style="background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 3px solid @(isApplied ? "#22c55e" : "#ef4444"); padding: 10px 12px;">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+                                <MudIcon Icon="@(isApplied ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                         Size="Size.Small" Style="@($"color: {(isApplied ? "#22c55e" : "#ef4444")}; flex-shrink: 0; margin-top: 2px;")" />
+                                <div style="flex: 1; min-width: 0;">
+                                    <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3;">
+                                        @item.RecommendationTitle
+                                    </MudText>
+                                    @if (!string.IsNullOrEmpty(item.ActionDetails))
+                                    {
+                                        <MudText Typo="Typo.caption" Style="color: #8b949e; margin-top: 2px;">
+                                            @item.ActionDetails
+                                        </MudText>
+                                    }
+                                    <MudStack Row="true" Spacing="3" Class="mt-1" Style="flex-wrap: wrap;">
+                                        @if (isApplied)
                                         {
-                                            <span> · est. $@item.EstimatedMonthlySavings.Value.ToString("F2")/mo</span>
+                                            <MudText Typo="Typo.caption" Style="color: #22c55e; font-size: 0.65rem;">
+                                                ✅ Applied @(item.DaysSinceImplementation > 0 ? $"{item.DaysSinceImplementation} days ago" : "today")
+                                            </MudText>
+                                            @if (item.EstimatedMonthlySavings.HasValue)
+                                            {
+                                                <MudText Typo="Typo.caption" Style="color: #3b82f6; font-size: 0.65rem;">
+                                                    📊 Est. $@item.EstimatedMonthlySavings.Value.ToString("F2")/mo
+                                                </MudText>
+                                            }
                                         }
-                                    </MudText>
-                                }
-                                else if (!isApplied)
-                                {
-                                    <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.65rem;">Rejected</MudText>
-                                }
-                            </div>
-                            @if (isApplied && item.ActualSavingsSinceImplementation > 0)
-                            {
-                                <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; padding: 4px 8px; flex-shrink: 0;">
-                                    <MudText Typo="Typo.caption" Style="font-weight: 700; color: #22c55e;">
-                                        $@item.ActualSavingsSinceImplementation.ToString("F2") saved
-                                    </MudText>
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Style="color: #ef4444; font-size: 0.65rem;">
+                                                ❌ Rejected @(item.DaysSinceImplementation > 0 ? $"{item.DaysSinceImplementation} days ago" : "today")
+                                            </MudText>
+                                            @if (missedSavings > 0)
+                                            {
+                                                <MudText Typo="Typo.caption" Style="color: #f59e0b; font-size: 0.65rem;">
+                                                    ⚠️ ~$@missedSavings.ToString("F2") missed savings
+                                                </MudText>
+                                            }
+                                            else if (item.EstimatedMonthlySavings.HasValue)
+                                            {
+                                                <MudText Typo="Typo.caption" Style="color: #f59e0b; font-size: 0.65rem;">
+                                                    ⚠️ Would save ~$@item.EstimatedMonthlySavings.Value.ToString("F2")/mo
+                                                </MudText>
+                                            }
+                                        }
+                                    </MudStack>
                                 </div>
-                            }
+                                @if (isApplied && item.ActualSavingsSinceImplementation > 0)
+                                {
+                                    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; padding: 6px 10px; flex-shrink: 0; text-align: center;">
+                                        <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">SAVED</MudText>
+                                        <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e;">
+                                            $@item.ActualSavingsSinceImplementation.ToString("F2")
+                                        </MudText>
+                                    </div>
+                                }
+                                else if (isApplied && item.EstimatedMonthlySavings.HasValue)
+                                {
+                                    <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); border-radius: 6px; padding: 6px 10px; flex-shrink: 0; text-align: center;">
+                                        <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">EST/MO</MudText>
+                                        <MudText Typo="Typo.body2" Style="font-weight: 700; color: #3b82f6;">
+                                            $@item.EstimatedMonthlySavings.Value.ToString("F2")
+                                        </MudText>
+                                    </div>
+                                }
+                                else if (!isApplied && item.EstimatedMonthlySavings.HasValue)
+                                {
+                                    <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 6px; padding: 6px 10px; flex-shrink: 0; text-align: center;">
+                                        <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">MISSED</MudText>
+                                        <MudText Typo="Typo.body2" Style="font-weight: 700; color: #ef4444;">
+                                            $@missedSavings.ToString("F2")
+                                        </MudText>
+                                    </div>
+                                }
+                            </MudStack>
                         </div>
                     }
                 </MudStack>

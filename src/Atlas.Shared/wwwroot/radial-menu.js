@@ -439,6 +439,43 @@ window.radialMenu = {
         rm._shelf = shelf;
         rm._shelfOverlay = overlay;
 
+        // Swipe-down to close
+        var shelfStartY = 0;
+        var shelfDragging = false;
+        var shelfTranslateY = 0;
+
+        shelf.addEventListener('touchstart', function (e) {
+            shelfStartY = e.touches[0].clientY;
+            shelfDragging = true;
+            shelfTranslateY = 0;
+            shelf.style.transition = 'none';
+        }, { passive: true });
+
+        shelf.addEventListener('touchmove', function (e) {
+            if (!shelfDragging) return;
+            var dy = e.touches[0].clientY - shelfStartY;
+            if (dy > 0) {
+                shelfTranslateY = dy;
+                shelf.style.transform = 'translateY(' + dy + 'px)';
+                // Fade overlay as shelf drags down
+                var opacity = Math.max(0, 1 - dy / 300);
+                if (rm._shelfOverlay) rm._shelfOverlay.style.opacity = opacity;
+            }
+        }, { passive: true });
+
+        shelf.addEventListener('touchend', function () {
+            shelfDragging = false;
+            shelf.style.transition = '';
+            if (shelfTranslateY > 80) {
+                // Threshold reached, close
+                rm.closeShelf();
+            } else {
+                // Snap back
+                shelf.style.transform = '';
+                if (rm._shelfOverlay) rm._shelfOverlay.style.opacity = '';
+            }
+        }, { passive: true });
+
         // Animate in
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
