@@ -72,6 +72,26 @@ public class CostEfficiencyAnalyzer : ICostEfficiencyAnalyzer
 
                     if (savings > 1) // Only recommend if savings > $1/month
                     {
+                        // Calculate worthiness based on task complexity indicators
+                        var avgTokenRatio = modelGroup.AvgOutputTokens / Math.Max(modelGroup.AvgInputTokens, 1);
+                        var isSimpleTask = modelGroup.AvgOutputTokens < 500;
+                        var isMediumTask = modelGroup.AvgOutputTokens < 1500;
+
+                        // Higher worthiness = safer to downgrade
+                        var worthiness = isSimpleTask ? 90 : isMediumTask ? 70 : 50;
+                        // Adjust for context complexity
+                        if (modelGroup.MaxContextPercent > 70) worthiness -= 15;
+                        worthiness = Math.Clamp(worthiness, 10, 95);
+
+                        var tradeoff = isSimpleTask
+                            ? "Minimal risk — these are short, simple responses. Haiku handles them well."
+                            : isMediumTask
+                                ? "Moderate risk — medium-complexity tasks may see slightly less nuanced reasoning and occasional missed context."
+                                : "Higher risk — complex tasks may produce less accurate or detailed responses. Review quality carefully.";
+
+                        if (modelGroup.MaxContextPercent > 70)
+                            tradeoff += " High context usage means the model needs to track more information, which smaller models handle less reliably.";
+
                         recommendations.Add(new CostEfficiencyRecommendation
                         {
                             Title = $"Use Haiku for {modelGroup.Model} tasks",
@@ -80,7 +100,9 @@ public class CostEfficiencyAnalyzer : ICostEfficiencyAnalyzer
                                          $"Current monthly cost: ${currentCost:F2}, estimated with Haiku: ${haikuEstimated:F2}.",
                             EstimatedMonthlySavings = savings,
                             ActionItems = $"Review requests using {modelGroup.Model} with <2000 output tokens; route to claude-haiku-4-5",
-                            Priority = savings > 10 ? 1 : 2
+                            Priority = savings > 10 ? 1 : 2,
+                            Tradeoff = tradeoff,
+                            WorthinessPercent = worthiness
                         });
                     }
                 }
@@ -108,9 +130,11 @@ public class CostEfficiencyAnalyzer : ICostEfficiencyAnalyzer
                 Title = $"High context usage in session {session.Session}",
                 Description = $"Session '{session.Session}' has {session.AvgContextPercent:F0}% average context usage across {session.Count} requests. " +
                              $"This suggests accumulated context is becoming large. Monthly cost: ${session.TotalCost:F2}.",
-                EstimatedMonthlySavings = session.TotalCost * 0.1m, // Conservative 10% estimate
+                EstimatedMonthlySavings = session.TotalCost * 0.1m,
                 ActionItems = "Implement context compaction or summarization to reduce token usage per request",
-                Priority = 2
+                Priority = 2,
+                Tradeoff = "Compacting context may lose some conversational nuance or earlier details. The AI might forget specifics from older messages.",
+                WorthinessPercent = session.AvgContextPercent > 90 ? 85 : 65
             });
         }
 
@@ -139,7 +163,9 @@ public class CostEfficiencyAnalyzer : ICostEfficiencyAnalyzer
                              $"This pattern suggests batch processing opportunities. Current monthly cost: ${session.TotalCost:F2}.",
                 EstimatedMonthlySavings = potentialSavings,
                 ActionItems = "Consider batching multiple requests, caching results, or reducing invocation frequency",
-                Priority = 2
+                Priority = 2,
+                Tradeoff = "Batching reduces real-time responsiveness. Results may be slightly delayed instead of instant. Some monitoring checks might be less frequent.",
+                WorthinessPercent = session.AvgOutputTokens < 50 ? 90 : 75
             });
         }
 
@@ -159,9 +185,11 @@ public class CostEfficiencyAnalyzer : ICostEfficiencyAnalyzer
                 Title = "High-cost outlier requests detected",
                 Description = $"Found {outliers.Sum(g => g.Count())} requests that cost significantly more than average " +
                              $"({avgCostPerRequest:F6} per request). Total outlier cost: ${outlierCost:F2}.",
-                EstimatedMonthlySavings = outlierCost * 0.5m, // Conservative 50% reduction estimate
+                EstimatedMonthlySavings = outlierCost * 0.5m,
                 ActionItems = "Review outlier requests for unexpected token usage or model selection errors",
-                Priority = 1
+                Priority = 1,
+                Tradeoff = "No downside — these are anomalies that should be investigated. Fixing them improves both cost and reliability.",
+                WorthinessPercent = 95
             });
         }
 

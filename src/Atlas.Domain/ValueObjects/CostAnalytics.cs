@@ -56,6 +56,8 @@ public class CostEfficiencyRecommendation
     public decimal EstimatedMonthlySavings { get; set; }
     public string ActionItems { get; set; } = string.Empty;
     public int Priority { get; set; } // 1=high, 2=medium, 3=low
+    public string Tradeoff { get; set; } = string.Empty;  // What you give up
+    public int WorthinessPercent { get; set; }             // 0-100, how worth the tradeoff is
 }
 
 public class DashboardRoiSummary

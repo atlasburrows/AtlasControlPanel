@@ -17,7 +17,7 @@
         </MudButtonGroup>
     </MudItem>
     <MudItem xs="6" md="3">
-        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: right;">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: right; height: 100%;">
             <MudText Typo="Typo.caption" Style="color: #8b949e;">Total Cost</MudText>
             <MudText Typo="Typo.h4" Style="font-weight: 700; color: #22c55e;">
                 @if (AnalyticsData != null)
@@ -29,10 +29,11 @@
                     <MudProgressCircular Indeterminate="true" Size="Size.Small" />
                 }
             </MudText>
+            <MudText Typo="Typo.caption" Style="color: #6b7280;">@SelectedDays day period</MudText>
         </MudPaper>
     </MudItem>
     <MudItem xs="6" md="3">
-        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: right;">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: right; height: 100%;">
             <MudText Typo="Typo.caption" Style="color: #8b949e;">Daily Average</MudText>
             <MudText Typo="Typo.h4" Style="font-weight: 700; color: #3b82f6;">
                 @if (AnalyticsData != null && RoiData != null && RoiData.DaysTracked > 0)
@@ -161,6 +162,8 @@
                 <MudStack Spacing="2">
                     @foreach (var rec in AnalyticsData.Recommendations)
                     {
+                        var worthColor = rec.WorthinessPercent >= 80 ? "#22c55e" : rec.WorthinessPercent >= 60 ? "#f59e0b" : "#ef4444";
+                        var worthLabel = rec.WorthinessPercent >= 80 ? "Recommended" : rec.WorthinessPercent >= 60 ? "Consider" : "Risky";
                         <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
                             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-1">
                                 <MudIcon Icon="@(rec.Priority == 1 ? Icons.Material.Filled.Warning : Icons.Material.Filled.Lightbulb)"
@@ -168,7 +171,25 @@
                                 <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3; flex: 1;">@rec.Title</MudText>
                                 <MudText Typo="Typo.caption" Style="color: #22c55e; font-weight: 600;">~$@rec.EstimatedMonthlySavings.ToString("F2")/mo</MudText>
                             </MudStack>
-                            <MudText Typo="Typo.caption" Style="color: #8b949e;">@rec.Description</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mb-2">@rec.Description</MudText>
+
+                            @if (!string.IsNullOrEmpty(rec.Tradeoff))
+                            {
+                                <div style="background: rgba(255,255,255,0.02); border-left: 3px solid @worthColor; border-radius: 0 6px 6px 0; padding: 8px 10px; margin-bottom: 8px;">
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">⚖️ Tradeoff</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #8b949e;">@rec.Tradeoff</MudText>
+                                </div>
+                            }
+
+                            <!-- Worthiness gauge -->
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+                                    <div style="@($"height: 100%; width: {rec.WorthinessPercent}%; background: {worthColor}; border-radius: 3px; transition: width 0.3s ease;")"></div>
+                                </div>
+                                <MudText Typo="Typo.caption" Style="@($"color: {worthColor}; font-weight: 700; white-space: nowrap; min-width: 100px; text-align: right;")">
+                                    @rec.WorthinessPercent% @worthLabel
+                                </MudText>
+                            </MudStack>
                         </div>
                     }
                 </MudStack>
@@ -181,12 +202,12 @@
 <!-- Row 1: Daily Cost Chart -->
 <MudGrid Spacing="3" Class="mb-4">
     <MudItem xs="12">
-        <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Daily Cost Trend</MudText>
+        <MudPaper Class="pa-3" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudText Typo="Typo.h6" Class="mb-2 ml-1" Style="font-weight: 600; color: #e6edf3;">Daily Cost Trend</MudText>
             @if (DailyCostSeries != null && DailyCostSeries.Count > 0)
             {
                 <MudChart ChartType="ChartType.Line" ChartSeries="@DailyCostSeries" XAxisLabels="@DailyCostLabels"
-                          Width="100%" Height="300px"
+                          Width="100%" Height="400px"
                           ChartOptions="@(new ChartOptions { YAxisTicks = 5, LineStrokeWidth = 2 })" />
             }
             else
