@@ -109,6 +109,21 @@ public class AnalyticsController(
     }
 
     /// <summary>
+    /// Get ROI summary — cost to run vs savings
+    /// </summary>
+    [HttpGet("roi")]
+    public async Task<IActionResult> GetRoiSummary([FromQuery] int days = 30)
+    {
+        if (days <= 0) days = 30;
+
+        var to = DateTime.UtcNow.Date.AddDays(1);
+        var from = to.AddDays(-days);
+
+        var roi = await tokenUsageRepository.GetRoiSummaryAsync(from, to);
+        return Ok(roi);
+    }
+
+    /// <summary>
     /// Get cost breakdown by project
     /// </summary>
     [HttpGet("cost/by-project")]

@@ -58,6 +58,23 @@ public class CostEfficiencyRecommendation
     public int Priority { get; set; } // 1=high, 2=medium, 3=low
 }
 
+public class RoiSummary
+{
+    public decimal TotalCost { get; set; }
+    public decimal OperationalCost { get; set; }  // System/heartbeat/cron overhead
+    public decimal DevelopmentCost { get; set; }   // Direct dev work cost
+    public decimal ActualSpend { get; set; }       // What was actually spent (all models)
+    public decimal IfAllOpusSpend { get; set; }    // What it would cost if everything ran on Opus
+    public decimal ModelTierSavings { get; set; }  // Savings from using cheaper models
+    public decimal ProjectedMonthlySavings { get; set; }
+    public int TotalRequests { get; set; }
+    public int DelegatedRequests { get; set; }     // Requests on non-Opus models
+    public int OpusRequests { get; set; }
+    public decimal CostPerRequest { get; set; }
+    public decimal OperationalPercent { get; set; } // % of total that's overhead
+    public int DaysTracked { get; set; }
+}
+
 public class CostAnalyticsSummary
 {
     public decimal TotalCost { get; set; }

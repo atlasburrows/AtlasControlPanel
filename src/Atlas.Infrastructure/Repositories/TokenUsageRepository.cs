@@ -138,4 +138,40 @@ public class TokenUsageRepository(IDbConnectionFactory connectionFactory) : ITok
             new { From = from, To = to, Now = now, InactiveDaysThreshold = inactiveDaysThreshold });
         return result.ToList();
     }
+
+    // Opus pricing per token
+    private const decimal OpusInputPerToken = 15m / 1_000_000m;
+    private const decimal OpusOutputPerToken = 75m / 1_000_000m;
+
+    public async Task<RoiSummary> GetRoiSummaryAsync(DateTime from, DateTime to)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var roi = await connection.QuerySingleAsync<RoiSummary>(
+            @"SELECT
+                SUM(CAST(CostUsd AS FLOAT)) as TotalCost,
+                SUM(CASE WHEN TaskCategory = 'System' THEN CAST(CostUsd AS FLOAT) ELSE 0 END) as OperationalCost,
+                SUM(CASE WHEN TaskCategory != 'System' OR TaskCategory IS NULL THEN CAST(CostUsd AS FLOAT) ELSE 0 END) as DevelopmentCost,
+                SUM(CAST(CostUsd AS FLOAT)) as ActualSpend,
+                SUM(InputTokens * @OpusIn + OutputTokens * @OpusOut) as IfAllOpusSpend,
+                SUM(InputTokens * @OpusIn + OutputTokens * @OpusOut) - SUM(CAST(CostUsd AS FLOAT)) as ModelTierSavings,
+                COUNT(*) as TotalRequests,
+                SUM(CASE WHEN Model NOT LIKE '%opus%' THEN 1 ELSE 0 END) as DelegatedRequests,
+                SUM(CASE WHEN Model LIKE '%opus%' THEN 1 ELSE 0 END) as OpusRequests,
+                CASE WHEN COUNT(*) > 0 THEN SUM(CAST(CostUsd AS FLOAT)) / COUNT(*) ELSE 0 END as CostPerRequest,
+                CASE WHEN SUM(CAST(CostUsd AS FLOAT)) > 0 
+                     THEN SUM(CASE WHEN TaskCategory = 'System' THEN CAST(CostUsd AS FLOAT) ELSE 0 END) / SUM(CAST(CostUsd AS FLOAT)) * 100 
+                     ELSE 0 END as OperationalPercent,
+                COUNT(DISTINCT CAST(Timestamp AS DATE)) as DaysTracked
+              FROM TokenUsage
+              WHERE Timestamp >= @From AND Timestamp < @To",
+            new { From = from, To = to, OpusIn = (double)OpusInputPerToken, OpusOut = (double)OpusOutputPerToken });
+
+        // Projected monthly savings based on current rate
+        if (roi.DaysTracked > 0 && roi.ModelTierSavings > 0)
+        {
+            roi.ProjectedMonthlySavings = roi.ModelTierSavings / roi.DaysTracked * 30;
+        }
+
+        return roi;
+    }
 }
