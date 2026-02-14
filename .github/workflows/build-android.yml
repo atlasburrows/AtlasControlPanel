@@ -1,0 +1,99 @@
+name: Build Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Atlas.MAUI/**'
+      - 'src/Atlas.Shared/**'
+      - 'src/Atlas.Domain/**'
+      - 'src/Atlas.Application/**'
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Java (for Android SDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-android
+
+      - name: Restore dependencies
+        run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj
+
+      - name: Build Android (Debug APK)
+        run: |
+          dotnet build src/Atlas.MAUI/Atlas.MAUI.csproj \
+            -f net10.0-android \
+            -c Debug
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-android-debug
+          path: src/Atlas.MAUI/bin/Debug/net10.0-android/*.apk
+          retention-days: 14
+
+  build-android-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-android
+
+      - name: Build Android (Signed Release)
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE" ]; then
+            echo "$ANDROID_KEYSTORE" | base64 --decode > atlas.keystore
+            dotnet publish src/Atlas.MAUI/Atlas.MAUI.csproj \
+              -f net10.0-android \
+              -c Release \
+              /p:AndroidSigningKeyStore=atlas.keystore \
+              /p:AndroidSigningKeyAlias=atlas \
+              /p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD" \
+              /p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
+          else
+            dotnet publish src/Atlas.MAUI/Atlas.MAUI.csproj \
+              -f net10.0-android \
+              -c Release
+          fi
+
+      - name: Upload Android AAB/APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-android-release
+          path: |
+            src/Atlas.MAUI/bin/Release/net10.0-android/publish/*.aab
+            src/Atlas.MAUI/bin/Release/net10.0-android/publish/*.apk
+          retention-days: 30
