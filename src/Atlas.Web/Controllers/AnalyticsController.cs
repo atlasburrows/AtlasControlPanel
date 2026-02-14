@@ -34,6 +34,7 @@ public class AnalyticsController(
             DurationMs = dto.DurationMs,
             SessionKey = dto.SessionKey,
             TaskCategory = dto.TaskCategory,
+            Project = dto.Project,
             ContextPercent = dto.ContextPercent
         };
 
@@ -108,6 +109,21 @@ public class AnalyticsController(
     }
 
     /// <summary>
+    /// Get cost breakdown by project
+    /// </summary>
+    [HttpGet("cost/by-project")]
+    public async Task<IActionResult> GetCostByProject([FromQuery] int days = 30)
+    {
+        if (days <= 0) days = 30;
+
+        var to = DateTime.UtcNow.Date.AddDays(1);
+        var from = to.AddDays(-days);
+
+        var costs = await tokenUsageRepository.GetUsageSummaryByProjectAsync(from, to);
+        return Ok(costs);
+    }
+
+    /// <summary>
     /// Get cost optimization recommendations
     /// </summary>
     [HttpGet("efficiency")]
@@ -173,6 +189,7 @@ public class AnalyticsController(
         var dailyCosts = await tokenUsageRepository.GetUsageSummaryByDayAsync(from, to);
         var costByModel = await tokenUsageRepository.GetUsageSummaryByModelAsync(from, to);
         var costBySession = await tokenUsageRepository.GetUsageSummaryBySessionAsync(from, to);
+        var costByProject = await tokenUsageRepository.GetUsageSummaryByProjectAsync(from, to);
         var recommendations = await costEfficiencyAnalyzer.AnalyzeAsync(usageData, from, to);
 
         var totalCost = await tokenUsageRepository.GetTotalCostAsync(from, to);
@@ -200,6 +217,7 @@ public class AnalyticsController(
             DailyCosts = dailyCosts,
             CostByModel = costByModel,
             CostBySession = costBySession,
+            CostByProject = costByProject.ToList(),
             TopSessions = topSessions,
             Recommendations = recommendations
         });
@@ -215,5 +233,6 @@ public record TokenUsageDto(
     int? DurationMs = null,
     string? SessionKey = null,
     string? TaskCategory = null,
+    string? Project = null,
     int? ContextPercent = null,
     DateTime? Timestamp = null);

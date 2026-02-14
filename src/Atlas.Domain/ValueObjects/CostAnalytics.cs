@@ -23,6 +23,15 @@ public class SessionCostBreakdown
     public string? TaskCategory { get; set; }
 }
 
+public class ProjectCostSummary
+{
+    public string Project { get; set; } = "";
+    public decimal TotalCost { get; set; }
+    public int TotalInputTokens { get; set; }
+    public int TotalOutputTokens { get; set; }
+    public int RequestCount { get; set; }
+}
+
 public class TopExpensiveSession
 {
     public string? SessionKey { get; set; }
@@ -52,6 +61,7 @@ public class CostAnalyticsSummary
     public List<DailyCostPoint> DailyCosts { get; set; } = new();
     public List<ModelCostBreakdown> CostByModel { get; set; } = new();
     public List<SessionCostBreakdown> CostBySession { get; set; } = new();
+    public List<ProjectCostSummary> CostByProject { get; set; } = new();
     public List<TopExpensiveSession> TopSessions { get; set; } = new();
     public List<CostEfficiencyRecommendation> Recommendations { get; set; } = new();
 }

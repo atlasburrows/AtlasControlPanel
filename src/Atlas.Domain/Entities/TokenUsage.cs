@@ -14,5 +14,6 @@ public class TokenUsage : BaseEntity
     public int? DurationMs { get; set; }
     public string? SessionKey { get; set; }                  // which session used it
     public string? TaskCategory { get; set; }                // Development, Research, etc.
+    public string? Project { get; set; }                     // Cost attribution by project
     public int? ContextPercent { get; set; }
 }

@@ -12,8 +12,8 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
     {
         using var connection = connectionFactory.CreateConnection();
         await connection.ExecuteAsync(
-            @"INSERT INTO TokenUsage (Id, Timestamp, Provider, Model, InputTokens, OutputTokens, TotalTokens, CostUsd, DurationMs, SessionKey, TaskCategory, ContextPercent)
-              VALUES (@Id, @Timestamp, @Provider, @Model, @InputTokens, @OutputTokens, @TotalTokens, @CostUsd, @DurationMs, @SessionKey, @TaskCategory, @ContextPercent)",
+            @"INSERT INTO TokenUsage (Id, Timestamp, Provider, Model, InputTokens, OutputTokens, TotalTokens, CostUsd, DurationMs, SessionKey, TaskCategory, Project, ContextPercent)
+              VALUES (@Id, @Timestamp, @Provider, @Model, @InputTokens, @OutputTokens, @TotalTokens, @CostUsd, @DurationMs, @SessionKey, @TaskCategory, @Project, @ContextPercent)",
             new
             {
                 Id = usage.Id.ToString(),
@@ -27,6 +27,7 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
                 usage.DurationMs,
                 usage.SessionKey,
                 usage.TaskCategory,
+                usage.Project,
                 usage.ContextPercent
             });
     }
@@ -53,6 +54,7 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
             DurationMs = r.DurationMs,
             SessionKey = r.SessionKey,
             TaskCategory = r.TaskCategory,
+            Project = r.Project,
             ContextPercent = r.ContextPercent
         }).ToList();
     }
@@ -117,6 +119,24 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
         return result ?? 0;
     }
 
+    public async Task<IEnumerable<ProjectCostSummary>> GetUsageSummaryByProjectAsync(DateTime from, DateTime to)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var result = await connection.QueryAsync<ProjectCostSummary>(
+            @"SELECT 
+                Project,
+                SUM(CAST(CostUsd AS REAL)) as TotalCost,
+                SUM(InputTokens) as TotalInputTokens,
+                SUM(OutputTokens) as TotalOutputTokens,
+                COUNT(*) as RequestCount
+              FROM TokenUsage
+              WHERE Timestamp >= @From AND Timestamp < @To AND Project IS NOT NULL
+              GROUP BY Project
+              ORDER BY TotalCost DESC",
+            new { From = from.ToString("O"), To = to.ToString("O") });
+        return result.ToList();
+    }
+
     private class TokenUsageRow
     {
         public string Id { get; set; } = "";
@@ -130,6 +150,7 @@ public class SqliteTokenUsageRepository(IDbConnectionFactory connectionFactory) 
         public int? DurationMs { get; set; }
         public string? SessionKey { get; set; }
         public string? TaskCategory { get; set; }
+        public string? Project { get; set; }
         public int? ContextPercent { get; set; }
     }
 }

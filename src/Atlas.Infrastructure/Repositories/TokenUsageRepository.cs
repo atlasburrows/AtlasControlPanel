@@ -13,8 +13,8 @@ public class TokenUsageRepository(IDbConnectionFactory connectionFactory) : ITok
     {
         using var connection = connectionFactory.CreateConnection();
         await connection.ExecuteAsync(
-            @"INSERT INTO TokenUsage (Id, Timestamp, Provider, Model, InputTokens, OutputTokens, TotalTokens, CostUsd, DurationMs, SessionKey, TaskCategory, ContextPercent)
-              VALUES (@Id, @Timestamp, @Provider, @Model, @InputTokens, @OutputTokens, @TotalTokens, @CostUsd, @DurationMs, @SessionKey, @TaskCategory, @ContextPercent)",
+            @"INSERT INTO TokenUsage (Id, Timestamp, Provider, Model, InputTokens, OutputTokens, TotalTokens, CostUsd, DurationMs, SessionKey, TaskCategory, Project, ContextPercent)
+              VALUES (@Id, @Timestamp, @Provider, @Model, @InputTokens, @OutputTokens, @TotalTokens, @CostUsd, @DurationMs, @SessionKey, @TaskCategory, @Project, @ContextPercent)",
             usage);
     }
 
@@ -87,5 +87,23 @@ public class TokenUsageRepository(IDbConnectionFactory connectionFactory) : ITok
               WHERE Timestamp >= @From AND Timestamp < @To",
             new { From = from, To = to });
         return result ?? 0;
+    }
+
+    public async Task<IEnumerable<ProjectCostSummary>> GetUsageSummaryByProjectAsync(DateTime from, DateTime to)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var result = await connection.QueryAsync<ProjectCostSummary>(
+            @"SELECT 
+                Project,
+                SUM(CAST(CostUsd AS FLOAT)) as TotalCost,
+                SUM(InputTokens) as TotalInputTokens,
+                SUM(OutputTokens) as TotalOutputTokens,
+                COUNT(*) as RequestCount
+              FROM TokenUsage
+              WHERE Timestamp >= @From AND Timestamp < @To AND Project IS NOT NULL
+              GROUP BY Project
+              ORDER BY TotalCost DESC",
+            new { From = from, To = to });
+        return result.ToList();
     }
 }
