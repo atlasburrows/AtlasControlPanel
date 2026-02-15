@@ -187,12 +187,13 @@
 
     private static string FormatTime(DateTime ts)
     {
-        var diff = DateTime.UtcNow - ts;
+        var utc = DateTime.SpecifyKind(ts, DateTimeKind.Utc);
+        var diff = DateTime.UtcNow - utc;
         if (diff.TotalMinutes < 1) return "Just now";
         if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
         if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
         if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
-        return ts.ToLocalTime().ToString("MMM d");
+        return utc.ToLocalTime().ToString("MMM d, h:mm tt");
     }
 
     private static string GetCategoryStyle(ActivityCategory cat) => cat switch

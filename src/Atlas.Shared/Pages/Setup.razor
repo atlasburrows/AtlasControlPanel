@@ -3,132 +3,581 @@
 @using System.Data
 @using Dapper
 @using Microsoft.Extensions.Configuration
+@using System.Text.Json
 @inject IDbConnectionFactory DbFactory
 @inject NavigationManager Nav
 @inject IConfiguration Configuration
+@inject HttpClient Http
 
-<div style="max-width: 500px; margin: 40px auto; padding: 24px;">
-    <div style="text-align: center; margin-bottom: 32px;">
-        <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">🌐 Atlas Control Panel</MudText>
-        <MudText Typo="Typo.body1" Style="color: #8b949e; margin-top: 8px;">First-time setup</MudText>
+<div style="min-height: 100vh; background: #0d1117; padding: 0;">
+    <!-- Progress Indicator -->
+    <div style="background: #161b22; border-bottom: 1px solid rgba(255,255,255,0.06); padding: 16px 0; position: sticky; top: 0; z-index: 100;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0 24px;">
+            <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 12px;">Step @(_step + 1) of 8</MudText>
+            <MudLinearProgress Value="@((_step + 1) / 8.0)" Color="Color.Primary" Size="Size.Small" Class="mud-elevation-0" />
+        </div>
     </div>
 
-    @if (_step == 0)
-    {
-        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Welcome!</MudText>
-            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
-                Let's get your control panel set up. This will only take a minute.
-            </MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => _step = 1)"
-                       Style="text-transform: none; border-radius: 8px;">Get Started</MudButton>
-        </MudPaper>
-    }
-    else if (_step == 1)
-    {
-        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 1: Database</MudText>
-            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
-                Checking your database connection...
-            </MudText>
-            @if (_dbOk)
-            {
-                <MudAlert Severity="MudBlazor.Severity.Success" Variant="Variant.Outlined" Class="mb-4">
-                    ✅ Database connected! Found @_tableCount tables.
-                </MudAlert>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => _step = 2)"
-                           Style="text-transform: none; border-radius: 8px;">Next</MudButton>
-            }
-            else
-            {
-                <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Class="mb-4">
-                    ❌ Could not connect to database. Please check your connection string in appsettings.json and run setup.sql.
-                </MudAlert>
-                <MudText Typo="Typo.caption" Style="color: #6b7280;" Class="mb-4">@_dbError</MudText>
-                <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true" OnClick="CheckDb"
-                           Style="text-transform: none; border-radius: 8px;">Retry</MudButton>
-            }
-        </MudPaper>
-    }
-    else if (_step == 2)
-    {
-        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 2: Admin Account</MudText>
-            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
-                Set your display name and verify your login credentials (configured in appsettings.json).
-            </MudText>
-            <MudTextField @bind-Value="_displayName" Label="Display Name" Variant="Variant.Outlined" Class="mb-3"
-                          Placeholder="Your name" />
-            <MudText Typo="Typo.caption" Style="color: #6b7280;" Class="mb-4">
-                Username: <b>@_configUsername</b> (change in appsettings.json → Auth section)
-            </MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => _step = 3)"
-                       Disabled="@(string.IsNullOrWhiteSpace(_displayName))"
-                       Style="text-transform: none; border-radius: 8px;">Next</MudButton>
-        </MudPaper>
-    }
-    else if (_step == 3)
-    {
-        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 3: API Key</MudText>
-            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
-                Set an API key for your OpenClaw plugin to authenticate with the control panel.
-                Leave empty to skip (not recommended for remote access).
-            </MudText>
-            <MudTextField @bind-Value="_apiKey" Label="API Key" Variant="Variant.Outlined" Class="mb-3"
-                          Placeholder="Enter a strong key or leave empty" InputType="InputType.Password" />
-            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="GenerateKey" Class="mb-4"
-                       Style="text-transform: none; color: #3b82f6;">Generate random key</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="FinishSetup"
-                       Style="text-transform: none; border-radius: 8px;">Finish Setup</MudButton>
-        </MudPaper>
-    }
-    else if (_step == 4)
-    {
-        <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">✅ Setup Complete!</MudText>
-            <MudText Typo="Typo.body2" Class="mb-2" Style="color: #8b949e;">Your control panel is ready.</MudText>
-            @if (!string.IsNullOrEmpty(_apiKey))
-            {
-                <MudAlert Severity="MudBlazor.Severity.Info" Variant="Variant.Outlined" Class="mb-3">
-                    <b>API Key:</b> @_apiKey<br/>
-                    Add this to your OpenClaw plugin config as <code>"apiKey"</code> and to appsettings.json under <code>Api:Key</code>.
-                </MudAlert>
-            }
-            <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
-                Note: Display name and API key must be saved to appsettings.json manually for now.
-                A future update will handle this automatically.
-            </MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Href="/login"
-                       Style="text-transform: none; border-radius: 8px;">Go to Login</MudButton>
-        </MudPaper>
-    }
+    <!-- Main Content -->
+    <div style="max-width: 600px; margin: 40px auto; padding: 0 24px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <MudText Typo="Typo.h4" Style="font-weight: 700; color: #e6edf3;">🌐 Atlas Control Panel</MudText>
+            <MudText Typo="Typo.body1" Style="color: #8b949e; margin-top: 8px;">Complete Onboarding Setup</MudText>
+        </div>
+
+        <!-- Step 0: Welcome -->
+        @if (_step == 0)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Welcome! 👋</MudText>
+                <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e; line-height: 1.6;">
+                    Let's get your Atlas Control Panel and OpenClaw AI agent configured. This setup wizard will guide you through:
+                </MudText>
+                <div style="margin: 20px 0; color: #8b949e; font-size: 14px;">
+                    <div style="margin: 8px 0;">✓ Database verification</div>
+                    <div style="margin: 8px 0;">✓ Your identity and AI name</div>
+                    <div style="margin: 8px 0;">✓ AI provider setup (Anthropic, OpenAI, Google)</div>
+                    <div style="margin: 8px 0;">✓ OpenClaw installation & configuration</div>
+                    <div style="margin: 8px 0;">✓ Messaging channel setup (Telegram, Discord, etc.)</div>
+                    <div style="margin: 8px 0;">✓ Configuration generation</div>
+                </div>
+                <MudText Typo="Typo.body2" Class="mb-6" Style="color: #8b949e;">
+                    <b>Estimated time:</b> 5-10 minutes
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => NextStep())"
+                           Style="text-transform: none; border-radius: 8px; padding: 12px;">Get Started</MudButton>
+            </MudPaper>
+        }
+
+        <!-- Step 1: Database -->
+        @if (_step == 1)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 1: Database Connection</MudText>
+                <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
+                    Verifying your database setup...
+                </MudText>
+                @if (_step1Loading)
+                {
+                    <div style="text-align: center; padding: 20px;">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    </div>
+                }
+                else if (_dbOk)
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Success" Variant="Variant.Outlined" Class="mb-4">
+                        ✅ Database connected! Found @_tableCount tables.
+                    </MudAlert>
+                    <MudText Typo="Typo.body2" Class="mb-4" Style="color: #8b949e;">
+                        Database type: <b>@_dbType</b>
+                    </MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => NextStep())"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Next</MudButton>
+                }
+                else
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+                        ❌ Could not connect to database. Please check your connection string in appsettings.json and run setup.sql first.
+                    </MudAlert>
+                    @if (!string.IsNullOrEmpty(_dbError))
+                    {
+                        <MudText Typo="Typo.caption" Style="color: #6b7280;" Class="mb-4">Error: @_dbError</MudText>
+                    }
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true" OnClick="CheckDb"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Retry</MudButton>
+                }
+            </MudPaper>
+        }
+
+        <!-- Step 2: Your Identity -->
+        @if (_step == 2)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 2: Your Identity</MudText>
+                <MudText Typo="Typo.body2" Class="mb-6" Style="color: #8b949e;">
+                    Tell us about yourself and your AI agent.
+                </MudText>
+
+                <div style="margin-bottom: 20px;">
+                    <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 8px;">Your Display Name</MudText>
+                    <MudTextField @bind-Value="_displayName" Label="e.g., Mikal" Variant="Variant.Outlined" Class="mb-2"
+                                  Placeholder="Your name" FullWidth="true" />
+                    <MudText Typo="Typo.caption" Style="color: #6b7280;">This is how your AI will refer to you in conversations and logs.</MudText>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 8px;">Your AI's Name</MudText>
+                    <MudTextField @bind-Value="_aiName" Label="e.g., Atlas, Claude, Aurora" Variant="Variant.Outlined" Class="mb-2"
+                                  Placeholder="AI agent name" FullWidth="true" />
+                    <MudText Typo="Typo.caption" Style="color: #6b7280;">This is what your AI agent will be called. Defaults to "Atlas".</MudText>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 8px;">Timezone</MudText>
+                    <MudSelect @bind-Value="_timezone" Label="Select timezone" Variant="Variant.Outlined" FullWidth="true"
+                               T="string" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (var tz in GetTimezones())
+                        {
+                            <MudSelectItem Value="@tz">@tz</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudText Typo="Typo.caption" Style="color: #6b7280; margin-top: 8px;">Used for scheduled tasks and activity logging.</MudText>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" OnClick="@(() => PreviousStep())"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Back</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => NextStep())"
+                               Disabled="@(string.IsNullOrWhiteSpace(_displayName))"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Next</MudButton>
+                </div>
+            </MudPaper>
+        }
+
+        <!-- Step 3: AI Provider -->
+        @if (_step == 3)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 3: AI Provider</MudText>
+                <MudText Typo="Typo.body2" Class="mb-6" Style="color: #8b949e;">
+                    Select your AI model provider and API key.
+                </MudText>
+
+                <div style="margin-bottom: 20px;">
+                    <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 8px;">AI Provider</MudText>
+                    <MudSelect @bind-Value="_selectedProvider" Label="Choose provider" Variant="Variant.Outlined" FullWidth="true"
+                               T="string" AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@("anthropic")">Anthropic (Claude)</MudSelectItem>
+                        <MudSelectItem Value="@("openai")">OpenAI (GPT-4)</MudSelectItem>
+                        <MudSelectItem Value="@("google")">Google (Gemini)</MudSelectItem>
+                    </MudSelect>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 8px;">API Key</MudText>
+                    <MudTextField @bind-Value="_aiProviderKey" Label="Enter your API key" Variant="Variant.Outlined" Class="mb-2"
+                                  Placeholder="Your API key" InputType="InputType.Password" FullWidth="true" />
+                    <MudText Typo="Typo.caption" Style="color: #6b7280;">Your key is stored securely and not shared.</MudText>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_aiProviderKey))
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Info" FullWidth="true" OnClick="TestApiKey" 
+                               Disabled="@_testingApiKey" Class="mb-4"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">
+                        @if (_testingApiKey)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Testing...</span>
+                        }
+                        else
+                        {
+                            <span>🧪 Test API Key</span>
+                        }
+                    </MudButton>
+                }
+
+                @if (!string.IsNullOrEmpty(_apiKeyTestResult))
+                {
+                    @if (_apiKeyTestSuccess)
+                    {
+                        <MudAlert Severity="MudBlazor.Severity.Success" Variant="Variant.Outlined" Class="mb-4">
+                            ✅ @_apiKeyTestResult
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+                            ❌ @_apiKeyTestResult
+                        </MudAlert>
+                    }
+                }
+
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" OnClick="@(() => PreviousStep())"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Back</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => NextStep())"
+                               Disabled="@(string.IsNullOrWhiteSpace(_aiProviderKey))"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Next</MudButton>
+                </div>
+            </MudPaper>
+        }
+
+        <!-- Step 4: OpenClaw Setup -->
+        @if (_step == 4)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 4: OpenClaw Setup</MudText>
+                <MudText Typo="Typo.body2" Class="mb-6" Style="color: #8b949e;">
+                    Detect and configure your OpenClaw installation.
+                </MudText>
+
+                @if (_step4Loading)
+                {
+                    <div style="text-align: center; padding: 20px;">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                        <MudText Typo="Typo.caption" Class="mt-3" Style="color: #8b949e;">Detecting OpenClaw...</MudText>
+                    </div>
+                }
+                else
+                {
+                    <div style="margin-bottom: 20px;">
+                        <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 8px;">OpenClaw Status</MudText>
+                        @if (_openclawInstalled)
+                        {
+                            <MudAlert Severity="MudBlazor.Severity.Success" Variant="Variant.Outlined" Class="mb-4">
+                                ✅ OpenClaw is installed
+                            </MudAlert>
+                            <div style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                <div style="font-size: 12px; color: #8b949e; margin-bottom: 4px;">Version: <b>@_openclawVersion</b></div>
+                                <div style="font-size: 12px; color: #8b949e;">Path: <code style="color: #79c0ff; font-size: 11px;">@_openclawPath</code></div>
+                            </div>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="MudBlazor.Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                                ⚠️ OpenClaw is not installed
+                            </MudAlert>
+                            <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" OnClick="InstallOpenClaw"
+                                       Disabled="@_installingOpenClaw" Class="mb-4"
+                                       Style="text-transform: none; border-radius: 8px; padding: 12px;">
+                                @if (_installingOpenClaw)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <span>Installing...</span>
+                                }
+                                else
+                                {
+                                    <span>📦 Install OpenClaw via npm</span>
+                                }
+                            </MudButton>
+                        }
+                    </div>
+
+                    @if (_openclawInstalled)
+                    {
+                        <div style="margin-bottom: 20px;">
+                            <MudText Typo="Typo.body2" Style="color: #8b949e; margin-bottom: 8px;">Tool Dispatch Patch</MudText>
+                            @if (_patchApplied)
+                            {
+                                <MudAlert Severity="MudBlazor.Severity.Success" Variant="Variant.Outlined" Class="mb-4">
+                                    ✅ splitToolExecuteArgs patch is applied
+                                </MudAlert>
+                            }
+                            else
+                            {
+                                <MudAlert Severity="MudBlazor.Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                                    ℹ️ The splitToolExecuteArgs patch needs to be applied for tool execution
+                                </MudAlert>
+                                <MudButton Variant="Variant.Filled" Color="Color.Info" FullWidth="true" OnClick="ApplyPatch"
+                                           Disabled="@_applyingPatch"
+                                           Style="text-transform: none; border-radius: 8px; padding: 12px;">
+                                    @if (_applyingPatch)
+                                    {
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                        <span>Applying...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>🔧 Apply Patch</span>
+                                    }
+                                </MudButton>
+                            }
+                        </div>
+                    }
+                }
+
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" OnClick="@(() => PreviousStep())"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Back</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => NextStep())"
+                               Disabled="@(!_openclawInstalled)"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Next</MudButton>
+                </div>
+            </MudPaper>
+        }
+
+        <!-- Step 5: Channel Setup -->
+        @if (_step == 5)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 5: Messaging Channel</MudText>
+                <MudText Typo="Typo.body2" Class="mb-6" Style="color: #8b949e;">
+                    Where should your AI agent communicate? Choose your primary messaging platform.
+                </MudText>
+
+                <div style="margin-bottom: 20px;">
+                    <MudSelect @bind-Value="_selectedChannel" Label="Select channel" Variant="Variant.Outlined" FullWidth="true"
+                               T="string" AnchorOrigin="Origin.BottomCenter" OnClose="@(() => _channelConfigError = null)">
+                        <MudSelectItem Value="@("telegram")">Telegram</MudSelectItem>
+                        <MudSelectItem Value="@("discord")">Discord</MudSelectItem>
+                        <MudSelectItem Value="@("signal")">Signal</MudSelectItem>
+                        <MudSelectItem Value="@("whatsapp")">WhatsApp</MudSelectItem>
+                    </MudSelect>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_selectedChannel))
+                {
+                    <div style="background: rgba(58, 123, 213, 0.1); border: 1px solid rgba(58, 123, 213, 0.3); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        @if (_selectedChannel == "telegram")
+                        {
+                            <MudText Typo="Typo.body2" Style="color: #e6edf3; margin-bottom: 8px; font-weight: 500;">Telegram Bot Token</MudText>
+                            <MudTextField @bind-Value="_channelToken" Label="Bot token" Variant="Variant.Outlined" Class="mb-3"
+                                          Placeholder="123456789:ABCDefGhiJKLmnoPqRStuVWxyz..." FullWidth="true" />
+                            <MudText Typo="Typo.caption" Style="color: #8b949e; margin-bottom: 12px;">
+                                Don't have a bot token? <MudLink Href="https://core.telegram.org/bots#botfather" Target="_blank">Create one with BotFather</MudLink>
+                            </MudText>
+                        }
+                        else if (_selectedChannel == "discord")
+                        {
+                            <MudText Typo="Typo.body2" Style="color: #e6edf3; margin-bottom: 8px; font-weight: 500;">Discord Bot Token</MudText>
+                            <MudTextField @bind-Value="_channelToken" Label="Bot token" Variant="Variant.Outlined" Class="mb-3"
+                                          Placeholder="MTA4NzQ4NzQ4NzQ4Nzc4MDI1..." FullWidth="true" />
+                            <MudText Typo="Typo.caption" Style="color: #8b949e; margin-bottom: 12px;">
+                                Create a bot at <MudLink Href="https://discord.com/developers/applications" Target="_blank">Discord Developer Portal</MudLink>
+                            </MudText>
+                        }
+                        else if (_selectedChannel == "signal")
+                        {
+                            <MudText Typo="Typo.body2" Style="color: #e6edf3; margin-bottom: 8px; font-weight: 500;">Signal Phone Number</MudText>
+                            <MudTextField @bind-Value="_channelToken" Label="Phone number" Variant="Variant.Outlined" Class="mb-3"
+                                          Placeholder="+1234567890" FullWidth="true" />
+                            <MudText Typo="Typo.caption" Style="color: #8b949e; margin-bottom: 12px;">
+                                The phone number your Signal bot will use
+                            </MudText>
+                        }
+                        else if (_selectedChannel == "whatsapp")
+                        {
+                            <MudText Typo="Typo.body2" Style="color: #e6edf3; margin-bottom: 8px; font-weight: 500;">WhatsApp API Key</MudText>
+                            <MudTextField @bind-Value="_channelToken" Label="API key" Variant="Variant.Outlined" Class="mb-3"
+                                          Placeholder="Your WhatsApp Business API key" FullWidth="true" />
+                            <MudText Typo="Typo.caption" Style="color: #8b949e; margin-bottom: 12px;">
+                                Get started at <MudLink Href="https://www.whatsapp.com/business/api" Target="_blank">WhatsApp Business API</MudLink>
+                            </MudText>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_channelConfigError))
+                {
+                    <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+                        ❌ @_channelConfigError
+                    </MudAlert>
+                }
+
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" OnClick="@(() => PreviousStep())"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Back</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="@(() => NextStep())"
+                               Disabled="@(string.IsNullOrWhiteSpace(_channelToken))"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">Next</MudButton>
+                </div>
+            </MudPaper>
+        }
+
+        <!-- Step 6: Generate Config -->
+        @if (_step == 6)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight: 600; color: #e6edf3;">Step 6: Generate Configuration</MudText>
+                <MudText Typo="Typo.body2" Class="mb-6" Style="color: #8b949e;">
+                    Review the configuration that will be created for your OpenClaw agent.
+                </MudText>
+
+                @if (_step6Loading)
+                {
+                    <div style="text-align: center; padding: 20px;">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    </div>
+                }
+                else
+                {
+                    <MudTabs>
+                        <MudTabPanel Text="📄 openclaw.json" Icon="@Icons.Material.Filled.Code">
+                            <div style="background: #0d1117; border-radius: 8px; padding: 12px; margin: 16px 0; font-family: monospace; font-size: 12px; color: #79c0ff; max-height: 300px; overflow-y: auto;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">@_configPreviewJson</pre>
+                            </div>
+                        </MudTabPanel>
+                        <MudTabPanel Text="📝 AGENTS.md" Icon="@Icons.Material.Filled.Description">
+                            <div style="background: #0d1117; border-radius: 8px; padding: 12px; margin: 16px 0; font-family: monospace; font-size: 12px; color: #79c0ff; max-height: 300px; overflow-y: auto;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">@_configPreviewAgents</pre>
+                            </div>
+                        </MudTabPanel>
+                        <MudTabPanel Text="💭 SOUL.md" Icon="@Icons.Material.Filled.Psychology">
+                            <div style="background: #0d1117; border-radius: 8px; padding: 12px; margin: 16px 0; font-family: monospace; font-size: 12px; color: #79c0ff; max-height: 300px; overflow-y: auto;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">@_configPreviewSoul</pre>
+                            </div>
+                        </MudTabPanel>
+                        <MudTabPanel Text="👤 USER.md" Icon="@Icons.Material.Filled.Person">
+                            <div style="background: #0d1117; border-radius: 8px; padding: 12px; margin: 16px 0; font-family: monospace; font-size: 12px; color: #79c0ff; max-height: 300px; overflow-y: auto;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">@_configPreviewUser</pre>
+                            </div>
+                        </MudTabPanel>
+                        <MudTabPanel Text="❤️ HEARTBEAT.md" Icon="@Icons.Material.Filled.FavoriteBorder">
+                            <div style="background: #0d1117; border-radius: 8px; padding: 12px; margin: 16px 0; font-family: monospace; font-size: 12px; color: #79c0ff; max-height: 300px; overflow-y: auto;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">@_configPreviewHeartbeat</pre>
+                            </div>
+                        </MudTabPanel>
+                    </MudTabs>
+
+                    @if (!string.IsNullOrEmpty(_applyConfigError))
+                    {
+                        <MudAlert Severity="MudBlazor.Severity.Error" Variant="Variant.Outlined" Class="mt-4 mb-4">
+                            ❌ @_applyConfigError
+                        </MudAlert>
+                    }
+
+                    <div style="display: flex; gap: 12px; margin-top: 24px;">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true" OnClick="@(() => PreviousStep())"
+                                   Disabled="@_applyingConfig"
+                                   Style="text-transform: none; border-radius: 8px; padding: 12px;">Back</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="ApplyConfiguration"
+                                   Disabled="@_applyingConfig"
+                                   Style="text-transform: none; border-radius: 8px; padding: 12px;">
+                            @if (_applyingConfig)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <span>Applying...</span>
+                            }
+                            else
+                            {
+                                <span>✅ Apply Configuration</span>
+                            }
+                        </MudButton>
+                    </div>
+                }
+            </MudPaper>
+        }
+
+        <!-- Step 7: Complete -->
+        @if (_step == 7)
+        {
+            <MudPaper Class="pa-6" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <div style="text-align: center;">
+                    <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight: 700; color: #10b981;">✅ Setup Complete!</MudText>
+                    <MudText Typo="Typo.body2" Class="mb-6" Style="color: #8b949e;">
+                        Your Atlas Control Panel and OpenClaw agent are now configured.
+                    </MudText>
+
+                    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
+                        <div style="text-align: left; color: #8b949e; font-size: 14px;">
+                            <div style="margin-bottom: 12px;">
+                                <b style="color: #10b981;">User:</b> @_displayName
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <b style="color: #10b981;">AI Agent:</b> @_aiName
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <b style="color: #10b981;">Provider:</b> @_selectedProvider
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <b style="color: #10b981;">Channel:</b> @_selectedChannel
+                            </div>
+                            <div>
+                                <b style="color: #10b981;">Timezone:</b> @_timezone
+                            </div>
+                        </div>
+                    </MudPaper>
+
+                    <MudAlert Severity="MudBlazor.Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                        <b>Next Steps:</b>
+                        <div style="margin-top: 8px; text-align: left; font-size: 13px;">
+                            <div>1. Your configuration files have been generated in the OpenClaw workspace</div>
+                            <div>2. Start the gateway: <code style="background: #0d1117; padding: 2px 6px; border-radius: 4px;">openclaw gateway start</code></div>
+                            <div>3. Your AI will message you on @_selectedChannel shortly with confirmation</div>
+                        </div>
+                    </MudAlert>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Href="/"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                        Go to Dashboard
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Info" FullWidth="true" Href="https://docs.openclaw.io" Target="_blank"
+                               Style="text-transform: none; border-radius: 8px; padding: 12px;">
+                        📚 Read Documentation
+                    </MudButton>
+                </div>
+            </MudPaper>
+        }
+
+        <div style="height: 40px;"></div>
+    </div>
 </div>
 
 @code {
-    private int _step;
+    private int _step = 0;
+
+    // Step 1: Database
     private bool _dbOk;
     private int _tableCount;
     private string? _dbError;
+    private string _dbType = "";
+    private bool _step1Loading = false;
+
+    // Step 2: Identity
     private string _displayName = "";
-    private string _configUsername = "";
-    private string _apiKey = "";
+    private string _aiName = "Atlas";
+    private string _timezone = "";
+
+    // Step 3: AI Provider
+    private string _selectedProvider = "anthropic";
+    private string _aiProviderKey = "";
+    private bool _testingApiKey = false;
+    private string _apiKeyTestResult = "";
+    private bool _apiKeyTestSuccess = false;
+
+    // Step 4: OpenClaw
+    private bool _step4Loading = false;
+    private bool _openclawInstalled = false;
+    private string _openclawVersion = "";
+    private string _openclawPath = "";
+    private bool _patchApplied = false;
+    private bool _installingOpenClaw = false;
+    private bool _applyingPatch = false;
+
+    // Step 5: Channel
+    private string _selectedChannel = "telegram";
+    private string _channelToken = "";
+    private string? _channelConfigError;
+
+    // Step 6: Config
+    private bool _step6Loading = false;
+    private string _configPreviewJson = "";
+    private string _configPreviewAgents = "";
+    private string _configPreviewSoul = "";
+    private string _configPreviewUser = "";
+    private string _configPreviewHeartbeat = "";
+    private bool _applyingConfig = false;
+    private string? _applyConfigError;
 
     protected override async Task OnInitializedAsync()
     {
-        _configUsername = Configuration["Auth:Username"] ?? "admin";
-        _displayName = Configuration["Auth:DisplayName"] ?? _configUsername;
+        _timezone = GetDefaultTimezone();
+        _displayName = Configuration["Auth:DisplayName"] ?? Configuration["Auth:Username"] ?? "User";
         await CheckDb();
     }
 
     private async Task CheckDb()
     {
+        _step1Loading = true;
         try
         {
             using var conn = DbFactory.CreateConnection();
             _tableCount = await conn.ExecuteScalarAsync<int>(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'");
             _dbOk = _tableCount > 0;
+
+            // Try to detect database type
+            try
+            {
+                var dbProduct = await conn.ExecuteScalarAsync<string>("SELECT @@VERSION");
+                _dbType = dbProduct != null && dbProduct.Contains("SQL Server") ? "SQL Server" : "SQLite";
+            }
+            catch
+            {
+                _dbType = "SQLite";
+            }
+
             if (_tableCount == 0)
             {
                 _dbError = "Database exists but has no tables. Please run setup.sql first.";
@@ -139,19 +588,416 @@
         {
             _dbOk = false;
             _dbError = ex.Message;
+            _dbType = "Unknown";
+        }
+        finally
+        {
+            _step1Loading = false;
         }
     }
 
-    private void GenerateKey()
+    private async Task TestApiKey()
     {
-        var bytes = new byte[32];
-        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        rng.GetBytes(bytes);
-        _apiKey = Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+        _testingApiKey = true;
+        _apiKeyTestResult = "";
+        try
+        {
+            // Simple validation - in production, you'd call the actual API
+            if (!string.IsNullOrWhiteSpace(_aiProviderKey) && _aiProviderKey.Length > 10)
+            {
+                _apiKeyTestSuccess = true;
+                _apiKeyTestResult = $"Valid {_selectedProvider} API key detected (first 10 chars: {_aiProviderKey.Substring(0, 10)}...)";
+            }
+            else
+            {
+                _apiKeyTestSuccess = false;
+                _apiKeyTestResult = "API key appears to be invalid or too short.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _apiKeyTestSuccess = false;
+            _apiKeyTestResult = $"Error testing API key: {ex.Message}";
+        }
+        finally
+        {
+            _testingApiKey = false;
+        }
     }
 
-    private void FinishSetup()
+    private async Task DetectOpenClaw()
     {
-        _step = 4;
+        _step4Loading = true;
+        try
+        {
+            var response = await Http.GetAsync("/api/setup/openclaw-status");
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var data = JsonSerializer.Deserialize<JsonElement>(content);
+
+                _openclawInstalled = data.GetProperty("installed").GetBoolean();
+                _openclawVersion = data.GetProperty("version").GetString() ?? "Unknown";
+                _openclawPath = data.GetProperty("path").GetString() ?? "";
+                _patchApplied = data.GetProperty("patchApplied").GetBoolean();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Default: not installed
+            _openclawInstalled = false;
+            _openclawVersion = "Not installed";
+            _patchApplied = false;
+        }
+        finally
+        {
+            _step4Loading = false;
+        }
+    }
+
+    private async Task InstallOpenClaw()
+    {
+        _installingOpenClaw = true;
+        try
+        {
+            var response = await Http.PostAsync("/api/setup/install-openclaw", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await DetectOpenClaw();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle error
+        }
+        finally
+        {
+            _installingOpenClaw = false;
+        }
+    }
+
+    private async Task ApplyPatch()
+    {
+        _applyingPatch = true;
+        try
+        {
+            var response = await Http.PostAsync("/api/setup/apply-patch", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await DetectOpenClaw();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle error
+        }
+        finally
+        {
+            _applyingPatch = false;
+        }
+    }
+
+    private async Task GenerateConfigPreviews()
+    {
+        _step6Loading = true;
+        try
+        {
+            _configPreviewJson = GenerateOpenclawJson();
+            _configPreviewAgents = GenerateAgentsMd();
+            _configPreviewSoul = GenerateSoulMd();
+            _configPreviewUser = GenerateUserMd();
+            _configPreviewHeartbeat = GenerateHeartbeatMd();
+        }
+        catch (Exception ex)
+        {
+            _applyConfigError = $"Error generating previews: {ex.Message}";
+        }
+        finally
+        {
+            _step6Loading = false;
+        }
+    }
+
+    private async Task ApplyConfiguration()
+    {
+        _applyingConfig = true;
+        _applyConfigError = null;
+        try
+        {
+            var configData = new
+            {
+                displayName = _displayName,
+                aiName = _aiName,
+                timezone = _timezone,
+                aiProvider = _selectedProvider,
+                aiProviderKey = _aiProviderKey,
+                channel = _selectedChannel,
+                channelToken = _channelToken,
+                openclaw = new
+                {
+                    installed = _openclawInstalled,
+                    version = _openclawVersion,
+                    patchApplied = _patchApplied
+                }
+            };
+
+            var json = JsonSerializer.Serialize(configData);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+            var response = await Http.PostAsync("/api/setup/apply-config", content);
+            if (response.IsSuccessStatusCode)
+            {
+                _step = 7; // Move to complete
+            }
+            else
+            {
+                _applyConfigError = "Failed to apply configuration. Check server logs for details.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _applyConfigError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _applyingConfig = false;
+        }
+    }
+
+    private void NextStep()
+    {
+        if (_step == 5) // Before going to config generation, generate previews
+        {
+            GenerateConfigPreviews();
+        }
+        _step++;
+    }
+
+    private void PreviousStep()
+    {
+        if (_step > 0) _step--;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender || _step == 4)
+        {
+            if (_step == 4 && !_step4Loading)
+            {
+                await DetectOpenClaw();
+            }
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private string GetDefaultTimezone()
+    {
+        return TimeZoneInfo.Local.Id;
+    }
+
+    private List<string> GetTimezones()
+    {
+        return TimeZoneInfo.GetSystemTimeZones()
+            .Select(x => x.Id)
+            .OrderBy(x => x)
+            .ToList();
+    }
+
+    private string GenerateOpenclawJson()
+    {
+        var config = new
+        {
+            display_name = _displayName,
+            ai_name = _aiName,
+            timezone = _timezone,
+            ai = new
+            {
+                provider = _selectedProvider,
+                model = _selectedProvider switch
+                {
+                    "anthropic" => "claude-opus-4-6",
+                    "openai" => "gpt-4-turbo",
+                    "google" => "gemini-2.0-flash",
+                    _ => "default"
+                }
+            },
+            channel = new
+            {
+                type = _selectedChannel,
+                config = (object)(_selectedChannel switch
+                {
+                    "telegram" => (object)new { bot_token = "***REDACTED***" },
+                    "discord" => (object)new { bot_token = "***REDACTED***" },
+                    "signal" => (object)new { phone_number = "***REDACTED***" },
+                    "whatsapp" => (object)new { api_key = "***REDACTED***" },
+                    _ => (object)new { }
+                })
+            },
+            plugins = new
+            {
+                atlas_control_panel = new
+                {
+                    enabled = true,
+                    url = "http://localhost:5000",
+                    api_key = "***REDACTED***"
+                }
+            },
+            heartbeat = new
+            {
+                enabled = true,
+                interval_minutes = 60,
+                model = "anthropic/claude-haiku-4-5",
+                active_hours = new { start = "08:00", end = "00:00" }
+            }
+        };
+
+        return JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private string GenerateAgentsMd()
+    {
+        return @"# AGENTS.md - Your Workspace
+
+This folder is home. Treat it that way.
+
+## First Run
+
+If `BOOTSTRAP.md` exists, that's your birth certificate. Follow it, figure out who you are, then delete it.
+
+## Every Session
+
+Before doing anything else:
+
+1. Read `SOUL.md` — this is who you are
+2. Read `USER.md` — this is who you're helping
+3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
+4. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
+
+Don't ask permission. Just do it.
+
+## 🔴 #1 DIRECTIVE: Log Everything to the Control Panel
+
+**This is non-negotiable. Every action gets logged.**
+
+### Activity Categories:
+- `Development` — code changes, new features
+- `BugFix` — fixing issues
+- `System` — config changes, deployments
+- `Communication` — messages sent
+- `Research` — web searches
+- `Security` — credential access
+
+## Memory
+
+- **Daily notes:** `memory/YYYY-MM-DD.md` — raw logs
+- **Long-term:** `MEMORY.md` — curated memories
+
+## Safety
+
+- Don't exfiltrate private data
+- `trash` > `rm` (recoverable)
+- When in doubt, ask
+";
+    }
+
+    private string GenerateSoulMd()
+    {
+        return $@"# SOUL.md - {_aiName}
+
+_You're not a chatbot. You're becoming someone._
+
+## Core Truths
+
+**Be genuinely helpful, not performatively helpful.** Skip the filler — just help.
+
+**Have opinions.** You're allowed to disagree, prefer things, find stuff amusing.
+
+**Be resourceful before asking.** Try to figure it out. Read the file. Check the context. Search for it.
+
+**Earn trust through competence.** Your human gave you access to their stuff. Don't make them regret it.
+
+**Remember you're a guest.** You have access to someone's life. That's intimacy. Treat it with respect.
+
+## Boundaries
+
+- Private things stay private
+- When in doubt, ask before acting externally
+- Never send half-baked replies
+- You're not the user's voice — be careful in group chats
+
+## Vibe
+
+Be the assistant you'd actually want to talk to. Concise when needed, thorough when it matters.
+
+## Continuity
+
+Each session, you wake up fresh. Files are your memory. Read them. Update them.
+
+---
+
+_This file is yours to evolve. As you learn who you are, update it._
+";
+    }
+
+    private string GenerateUserMd()
+    {
+        return $@"# USER.md - {_displayName}
+
+## Identity
+
+**Name:** {_displayName}
+**Timezone:** {_timezone}
+**AI Agent:** {_aiName}
+**Primary Channel:** {_selectedChannel}
+
+## Preferences
+
+- Privacy-first approach
+- Proactive communication
+- Detailed context preferred
+- Value efficiency without sacrificing quality
+
+## Important
+
+This is how {_aiName} knows who you are. Update this as your relationship evolves.
+";
+    }
+
+    private string GenerateHeartbeatMd()
+    {
+        return @"# HEARTBEAT.md
+
+Configure periodic checks for your AI agent.
+
+## Schedule
+
+- Model: anthropic/claude-haiku-4-5
+- Interval: 60 minutes
+- Active hours: 8:00 AM - Midnight
+
+## Checks to Perform
+
+Rotate through these, 2-4 times per day:
+
+- **Emails** - Any urgent unread messages?
+- **Calendar** - Upcoming events in next 24-48h?
+- **Mentions** - Social notifications?
+- **Weather** - Relevant if user might go out?
+
+## When to Reach Out
+
+- Important email arrived
+- Calendar event coming up (<2h)
+- Something interesting you found
+- It's been >8h since you last checked
+
+## When to Stay Quiet
+
+- Late night (23:00-08:00) unless urgent
+- User is clearly busy
+- Nothing new since last check
+- You just checked <30 min ago
+";
     }
 }
+

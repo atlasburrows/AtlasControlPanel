@@ -4,6 +4,7 @@
 @using System.Text.Json
 @inject HttpClient HttpClient
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Cost Analytics</MudText>
 
@@ -130,11 +131,6 @@
                     <MudText Typo="Typo.caption" Style="color: #6b7280;">Credential Requests</MudText>
                 </div>
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; text-align: center;">
-                    <MudIcon Icon="@Icons.Material.Filled.Chat" Size="Size.Small" Style="color: #22c55e;" />
-                    <MudText Typo="Typo.h6" Style="font-weight: 700; color: #e6edf3;">@RoiData.MessageRelayCount</MudText>
-                    <MudText Typo="Typo.caption" Style="color: #6b7280;">Messages Relayed</MudText>
-                </div>
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; text-align: center;">
                     <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" Size="Size.Small" Style="color: #06b6d4;" />
                     <MudText Typo="Typo.h6" Style="font-weight: 700; color: #e6edf3;">@RoiData.MonitoringCheckCount</MudText>
                     <MudText Typo="Typo.caption" Style="color: #6b7280;">Health Checks</MudText>
@@ -155,8 +151,23 @@
                 </MudAlert>
             }
 
-            <!-- Cost Optimization Recommendations -->
-            <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2" Style="color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Cost Optimization</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+}
+
+<!-- Cost Optimization — Overall efficiency, separate from dashboard ops -->
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="12">
+        <MudPaper Class="pa-4" Elevation="0" Style="background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1520 100%); border-radius: 12px; border: 1px solid rgba(245,158,11,0.15);">
+            <div Class="mb-3">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.TipsAndUpdates" Style="color: #f59e0b;" />
+                    <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Cost Optimization</MudText>
+                </MudStack>
+                <MudText Typo="Typo.caption" Style="color: #6b7280; margin-left: 32px;">Analyzes your overall usage</MudText>
+            </div>
+
             @if (AnalyticsData?.Recommendations != null && AnalyticsData.Recommendations.Count > 0)
             {
                 <MudStack Spacing="2">
@@ -181,7 +192,6 @@
                                 </div>
                             }
 
-                            <!-- Worthiness gauge + actions -->
                             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                                 <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
                                     <div style="@($"height: 100%; width: {rec.WorthinessPercent}%; background: {worthColor}; border-radius: 3px; transition: width 0.3s ease;")"></div>
@@ -220,113 +230,95 @@
             @if (OptHistory != null && OptHistory.Count > 0)
             {
                 <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2" Style="color: #8b949e; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Optimization History
+                    History
                     @if (OptTotalSaved > 0)
                     {
                         <span style="color: #22c55e; margin-left: 8px;">💰 $@OptTotalSaved.ToString("F2") saved all-time</span>
                     }
                 </MudText>
-                <MudStack Spacing="2">
-                    @foreach (var item in OptHistory)
+                <MudStack Spacing="1">
+                    @foreach (var item in (_showAllHistory ? OptHistory : OptHistory.Take(5)))
                     {
                         var isApplied = item.Action == "applied";
+                        var isExpanded = _expandedHistoryItem == item.RecommendationTitle;
                         var missedSavings = !isApplied && item.EstimatedMonthlySavings.HasValue
                             ? item.EstimatedMonthlySavings.Value / 30 * item.DaysSinceImplementation
                             : 0m;
-                        <div style="background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 3px solid @(isApplied ? "#22c55e" : "#ef4444"); padding: 10px 12px;">
-                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+                        <div style="background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 3px solid @(isApplied ? "#22c55e" : "#ef4444"); padding: 8px 12px; cursor: pointer; transition: background 0.15s;"
+                             @onclick="() => ToggleHistoryItem(item.RecommendationTitle)">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                                 <MudIcon Icon="@(isApplied ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
-                                         Size="Size.Small" Style="@($"color: {(isApplied ? "#22c55e" : "#ef4444")}; flex-shrink: 0; margin-top: 2px;")" />
-                                <div style="flex: 1; min-width: 0;">
-                                    <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3;">
-                                        @item.RecommendationTitle
-                                    </MudText>
-                                    @if (!string.IsNullOrEmpty(item.ActionDetails))
-                                    {
-                                        <MudText Typo="Typo.caption" Style="color: #8b949e; margin-top: 2px;">
-                                            @item.ActionDetails
-                                        </MudText>
-                                    }
-                                    <MudStack Row="true" Spacing="3" Class="mt-1" Style="flex-wrap: wrap;">
-                                        @if (isApplied)
-                                        {
-                                            <MudText Typo="Typo.caption" Style="color: #22c55e; font-size: 0.65rem;">
-                                                ✅ Applied @(item.DaysSinceImplementation > 0 ? $"{item.DaysSinceImplementation} days ago" : "today")
-                                            </MudText>
-                                            @if (item.EstimatedMonthlySavings.HasValue)
-                                            {
-                                                <MudText Typo="Typo.caption" Style="color: #3b82f6; font-size: 0.65rem;">
-                                                    📊 Est. $@item.EstimatedMonthlySavings.Value.ToString("F2")/mo
-                                                </MudText>
-                                            }
-                                        }
-                                        else
-                                        {
-                                            <MudText Typo="Typo.caption" Style="color: #ef4444; font-size: 0.65rem;">
-                                                ❌ Rejected @(item.DaysSinceImplementation > 0 ? $"{item.DaysSinceImplementation} days ago" : "today")
-                                            </MudText>
-                                            @if (missedSavings > 0)
-                                            {
-                                                <MudText Typo="Typo.caption" Style="color: #f59e0b; font-size: 0.65rem;">
-                                                    ⚠️ ~$@missedSavings.ToString("F2") missed savings
-                                                </MudText>
-                                            }
-                                            else if (item.EstimatedMonthlySavings.HasValue)
-                                            {
-                                                <MudText Typo="Typo.caption" Style="color: #f59e0b; font-size: 0.65rem;">
-                                                    ⚠️ Would save ~$@item.EstimatedMonthlySavings.Value.ToString("F2")/mo
-                                                </MudText>
-                                            }
-                                        }
-                                    </MudStack>
-                                </div>
+                                         Size="Size.Small" Style="@($"color: {(isApplied ? "#22c55e" : "#ef4444")}; flex-shrink: 0;")" />
+                                <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    @item.RecommendationTitle
+                                </MudText>
                                 @if (isApplied && item.ActualSavingsSinceImplementation > 0)
                                 {
-                                    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 6px; padding: 6px 10px; flex-shrink: 0; text-align: center;">
-                                        <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">SAVED</MudText>
-                                        <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e;">
-                                            $@item.ActualSavingsSinceImplementation.ToString("F2")
-                                        </MudText>
-                                    </div>
+                                    <MudText Typo="Typo.caption" Style="color: #22c55e; font-weight: 700; white-space: nowrap;">+$@item.ActualSavingsSinceImplementation.ToString("F2")</MudText>
                                 }
-                                else if (isApplied && item.EstimatedMonthlySavings.HasValue)
+                                else if (item.EstimatedMonthlySavings.HasValue)
                                 {
-                                    <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); border-radius: 6px; padding: 6px 10px; flex-shrink: 0; text-align: center;">
-                                        <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">EST/MO</MudText>
-                                        <MudText Typo="Typo.body2" Style="font-weight: 700; color: #3b82f6;">
-                                            $@item.EstimatedMonthlySavings.Value.ToString("F2")
-                                        </MudText>
-                                    </div>
+                                    <MudText Typo="Typo.caption" Style="@($"color: {(isApplied ? "#3b82f6" : "#ef4444")}; font-weight: 600; white-space: nowrap;")">$@item.EstimatedMonthlySavings.Value.ToString("F2")/mo</MudText>
                                 }
-                                else if (!isApplied && item.EstimatedMonthlySavings.HasValue)
-                                {
-                                    <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 6px; padding: 6px 10px; flex-shrink: 0; text-align: center;">
-                                        <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">MISSED</MudText>
-                                        <MudText Typo="Typo.body2" Style="font-weight: 700; color: #ef4444;">
-                                            $@missedSavings.ToString("F2")
-                                        </MudText>
-                                    </div>
-                                }
+                                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                         Size="Size.Small" Style="color: #484f58; flex-shrink: 0;" />
                             </MudStack>
+                            @if (isExpanded)
+                            {
+                                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    @if (!string.IsNullOrEmpty(item.ActionDetails))
+                                    {
+                                        <MudText Typo="Typo.caption" Style="color: #8b949e; margin-bottom: 6px;">@item.ActionDetails</MudText>
+                                    }
+                                    <MudStack Row="true" Spacing="3" Style="flex-wrap: wrap;">
+                                        <MudText Typo="Typo.caption" Style="@($"color: {(isApplied ? "#22c55e" : "#ef4444")}; font-size: 0.65rem;")">
+                                            @(isApplied ? "✅" : "❌") @(isApplied ? "Applied" : "Rejected") @(item.DaysSinceImplementation > 0 ? $"{item.DaysSinceImplementation}d ago" : "today")
+                                        </MudText>
+                                        @if (isApplied && item.EstimatedMonthlySavings.HasValue)
+                                        {
+                                            <MudText Typo="Typo.caption" Style="color: #3b82f6; font-size: 0.65rem;">📊 Est. $@item.EstimatedMonthlySavings.Value.ToString("F2")/mo</MudText>
+                                        }
+                                        @if (!isApplied && missedSavings > 0)
+                                        {
+                                            <MudText Typo="Typo.caption" Style="color: #f59e0b; font-size: 0.65rem;">⚠️ ~$@missedSavings.ToString("F2") missed</MudText>
+                                        }
+                                    </MudStack>
+                                    @if (isApplied && item.ActualSavingsSinceImplementation > 0)
+                                    {
+                                        <div style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.15); border-radius: 6px; padding: 6px 10px; margin-top: 6px; display: inline-block;">
+                                            <MudText Typo="Typo.caption" Style="color: #22c55e; font-weight: 700;">Saved $@item.ActualSavingsSinceImplementation.ToString("F2") so far</MudText>
+                                        </div>
+                                    }
+                                </div>
+                            }
                         </div>
                     }
                 </MudStack>
+                @if (OptHistory.Count > 5)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                               Style="margin-top: 8px; font-size: 0.75rem;"
+                               @onclick="() => { _showAllHistory = !_showAllHistory; }">
+                        @(_showAllHistory ? "Show Less" : $"See All ({OptHistory.Count})")
+                    </MudButton>
+                }
             }
         </MudPaper>
     </MudItem>
 </MudGrid>
-}
 
 <!-- Row 1: Daily Cost Chart -->
-<MudGrid Spacing="3" Class="mb-4">
+<MudGrid Spacing="3" Class="mb-2">
     <MudItem xs="12">
-        <MudPaper Class="pa-3" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-2 ml-1" Style="font-weight: 600; color: #e6edf3;">Daily Cost Trend</MudText>
+        <MudPaper Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; padding: 8px 0 0 0;">
+            <MudText Typo="Typo.h6" Class="mb-0" Style="font-weight: 600; color: #e6edf3; font-size: 0.95rem; padding: 0 12px;">Daily Cost Trend</MudText>
             @if (DailyCostSeries != null && DailyCostSeries.Count > 0)
             {
+                <div id="dailyCostChart" class="area-chart-wrap" style="height: 42vh; min-height: 250px;">
                 <MudChart ChartType="ChartType.Line" ChartSeries="@DailyCostSeries" XAxisLabels="@DailyCostLabels"
-                          Width="100%" Height="400px"
+                          Width="100%" Height="100%"
                           ChartOptions="@(new ChartOptions { YAxisTicks = 5, LineStrokeWidth = 2 })" />
+                </div>
             }
             else
             {
@@ -421,10 +413,21 @@
     <MudItem xs="12" md="6">
         <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
             <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost by Model</MudText>
-            @if (ModelCostSeries != null && ModelCostSeries.Count > 0)
+            @if (ModelCostData != null && ModelCostData.Length > 0)
             {
-                <MudChart ChartType="ChartType.Donut" ChartSeries="@ModelCostSeries" InputLabels="@ModelLabels"
+                <MudChart ChartType="ChartType.Donut" InputData="@ModelCostData" InputLabels="@ModelLabels"
                           Width="100%" Height="300px" />
+                <MudStack Spacing="1" Class="mt-3">
+                    @for (var i = 0; i < ModelLabels.Length; i++)
+                    {
+                        var idx = i;
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: @GetChartColor(idx); flex-shrink: 0;"></span>
+                            <MudText Typo="Typo.caption" Style="color: #c9d1d9; flex: 1;">@ModelLabels[idx]</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #22c55e; font-weight: 600;">$@ModelCostData[idx].ToString("F2")</MudText>
+                        </MudStack>
+                    }
+                </MudStack>
             }
             else
             {
@@ -434,21 +437,66 @@
     </MudItem>
     <MudItem xs="12" md="6">
         <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Top Sessions</MudText>
-            @if (AnalyticsData?.TopSessions != null && AnalyticsData.TopSessions.Count > 0)
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost by Category</MudText>
+            @if (CategoryBreakdown != null && CategoryBreakdown.Count > 0)
             {
-                <MudStack Spacing="2">
-                    @foreach (var session in AnalyticsData.TopSessions.Take(5))
+                <MudStack Spacing="1">
+                    @{ var maxCatCost = CategoryBreakdown.Max(c => c.Cost); }
+                    @foreach (var cat in CategoryBreakdown)
                     {
-                        <MudPaper Class="pa-3" Elevation="0" Style="background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                                <MudStack Style="flex: 1;">
-                                    <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3;">@(session.SessionKey ?? "Unknown")</MudText>
-                                    <MudText Typo="Typo.caption" Style="color: #8b949e;">@session.RequestCount requests</MudText>
-                                </MudStack>
-                                <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e;">$@session.TotalCost.ToString("F2")</MudText>
+                        var pct = maxCatCost > 0 ? (double)(cat.Cost / maxCatCost) * 100 : 0;
+                        var totalPct = AnalyticsData!.TotalCost > 0 ? (double)(cat.Cost / AnalyticsData.TotalCost) * 100 : 0;
+                        var isCatExpanded = _expandedCategory == cat.Name;
+                        <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: background 0.15s;"
+                             @onclick="() => { _expandedCategory = isCatExpanded ? null : cat.Name; }">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-1">
+                                <span style="@($"display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: {cat.Color}18; font-size: 0.85rem;")">@cat.Icon</span>
+                                <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3; flex: 1;">@cat.Name</MudText>
+                                <div style="text-align: right;">
+                                    <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e;">$@cat.Cost.ToString("F2")</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.6rem;">@cat.Count req · @totalPct.ToString("F0")%</MudText>
+                                </div>
+                                <MudIcon Icon="@(isCatExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                         Size="Size.Small" Style="color: #484f58; flex-shrink: 0;" />
                             </MudStack>
-                        </MudPaper>
+                            <div style="height: 4px; background: rgba(255,255,255,0.04); border-radius: 2px; overflow: hidden;">
+                                <div style="@($"height: 100%; width: {pct:F1}%; background: {cat.Color}; border-radius: 2px; transition: width 0.3s ease;")"></div>
+                            </div>
+                            @if (isCatExpanded)
+                            {
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    <MudStack Row="true" Spacing="3" Style="margin-bottom: 8px;">
+                                        <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                            <MudIcon Icon="@Icons.Material.Filled.Input" Size="Size.Small" Style="vertical-align: middle; color: #484f58;" /> @FormatTokens(cat.TotalInputTokens) in
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                            <MudIcon Icon="@Icons.Material.Filled.Output" Size="Size.Small" Style="vertical-align: middle; color: #484f58;" /> @FormatTokens(cat.TotalOutputTokens) out
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                            @cat.DaysActive days active
+                                        </MudText>
+                                    </MudStack>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <div style="@($"background: {cat.Color}12; border: 1px solid {cat.Color}30; border-radius: 8px; padding: 6px 10px; min-width: 80px;")">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Avg/Request</MudText>
+                                            <MudText Typo="Typo.body2" Style="@($"font-weight: 700; color: {cat.Color};")">$@cat.AvgCostPerRequest.ToString("F4")</MudText>
+                                        </div>
+                                        <div style="@($"background: {cat.Color}12; border: 1px solid {cat.Color}30; border-radius: 8px; padding: 6px 10px; min-width: 80px;")">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Daily Avg</MudText>
+                                            <MudText Typo="Typo.body2" Style="@($"font-weight: 700; color: {cat.Color};")">$@cat.DailyAvg.ToString("F2")<span style="font-weight: 400; font-size: 0.7rem;">/day</span></MudText>
+                                        </div>
+                                        <div style="@($"background: {cat.Color}12; border: 1px solid {cat.Color}30; border-radius: 8px; padding: 6px 10px; min-width: 80px;")">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Avg Tokens/Req</MudText>
+                                            <MudText Typo="Typo.body2" Style="@($"font-weight: 700; color: {cat.Color};")">@(cat.Count > 0 ? FormatTokens((cat.TotalInputTokens + cat.TotalOutputTokens) / Math.Max(1, cat.Count)) : "—")</MudText>
+                                        </div>
+                                        <div style="@($"background: {cat.Color}12; border: 1px solid {cat.Color}30; border-radius: 8px; padding: 6px 10px; min-width: 80px;")">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Monthly Est.</MudText>
+                                            <MudText Typo="Typo.body2" Style="@($"font-weight: 700; color: {cat.Color};")">$@((cat.DailyAvg * 30).ToString("F2"))</MudText>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     }
                 </MudStack>
             }
@@ -460,22 +508,90 @@
     </MudItem>
 </MudGrid>
 
-<!-- Row 3: Top Expensive Sessions Table -->
+<!-- Row 3: Most Expensive Requests -->
 <MudGrid Spacing="3" Class="mb-4">
     <MudItem xs="12">
         <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
             <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Most Expensive Requests</MudText>
-            @if (AnalyticsData?.TopSessions != null && AnalyticsData.TopSessions.Count > 0)
+            @if (AnalyticsData?.TopRequests != null && AnalyticsData.TopRequests.Count > 0)
             {
-                <MudDataGrid Items="@(AnalyticsData.TopSessions.AsQueryable())" Striped="true" Hover="true" Style="background: transparent;">
-                    <Columns>
-                        <PropertyColumn Property="x => x.SessionKey" Title="Session" />
-                        <PropertyColumn Property="x => x.TaskCategory" Title="Category" />
-                        <PropertyColumn Property="x => x.RequestCount" Title="Requests" />
-                        <PropertyColumn Property="x => x.TotalCost" Title="Total Cost" Format="$0.00" />
-                        <PropertyColumn Property="x => x.AverageCostPerRequest" Title="Avg Cost/Request" Format="$0.000000" />
-                    </Columns>
-                </MudDataGrid>
+                <MudStack Spacing="1">
+                    @{ var rank = 0; }
+                    @foreach (var req in AnalyticsData.TopRequests.Take(10))
+                    {
+                        rank++;
+                        var currentRank = rank;
+                        var rankColor = currentRank <= 3 ? "#f59e0b" : "#484f58";
+                        var catColor = (req.TaskCategory ?? "") switch { "Development" => "#3b82f6", "System" => "#a855f7", "Research" => "#06b6d4", _ => "#6b7280" };
+                        var isReqExpanded = _expandedRequest == currentRank;
+                        var costPerInputK = req.InputTokens > 0 ? req.CostUsd * 1000m / (req.InputTokens + req.OutputTokens) : 0m;
+                        var outputRatio = (req.InputTokens + req.OutputTokens) > 0 ? (double)req.OutputTokens / (req.InputTokens + req.OutputTokens) * 100 : 0;
+                        <div style="background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); padding: 10px 12px; cursor: pointer; transition: background 0.15s;"
+                             @onclick="() => { _expandedRequest = _expandedRequest == currentRank ? null : currentRank; }">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <div style="@($"width: 28px; height: 28px; border-radius: 8px; background: {(rank <= 3 ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)")}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;")">
+                                    <span style="@($"font-weight: 800; font-size: 0.75rem; color: {rankColor};")">@rank</span>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                        @if (!string.IsNullOrEmpty(req.Project))
+                                        {
+                                            <MudText Typo="Typo.body2" Style="font-weight: 600; color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@req.Project</MudText>
+                                        }
+                                        @if (!string.IsNullOrEmpty(req.TaskCategory))
+                                        {
+                                            <span style="@($"font-size: 0.6rem; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: {catColor}22; color: {catColor}; white-space: nowrap;")">@req.TaskCategory</span>
+                                        }
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.65rem; margin-top: 2px;">@(DateTime.SpecifyKind(req.Timestamp, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, h:mm tt"))</MudText>
+                                </div>
+                                <div style="text-align: right; flex-shrink: 0;">
+                                    <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e;">$@req.CostUsd.ToString("F2")</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #484f58; font-size: 0.6rem;">@req.Model.Split('/').LastOrDefault()</MudText>
+                                </div>
+                                <MudIcon Icon="@(isReqExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                         Size="Size.Small" Style="color: #484f58; flex-shrink: 0;" />
+                            </MudStack>
+                            @if (isReqExpanded)
+                            {
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                                        <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px; padding: 6px 10px; min-width: 80px;">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Input</MudText>
+                                            <MudText Typo="Typo.body2" Style="font-weight: 700; color: #3b82f6;">@FormatTokens(req.InputTokens)</MudText>
+                                        </div>
+                                        <div style="background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2); border-radius: 8px; padding: 6px 10px; min-width: 80px;">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Output</MudText>
+                                            <MudText Typo="Typo.body2" Style="font-weight: 700; color: #a855f7;">@FormatTokens(req.OutputTokens)</MudText>
+                                        </div>
+                                        <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 6px 10px; min-width: 80px;">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Cost/1k tokens</MudText>
+                                            <MudText Typo="Typo.body2" Style="font-weight: 700; color: #f59e0b;">$@costPerInputK.ToString("F4")</MudText>
+                                        </div>
+                                        <div style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 6px 10px; min-width: 80px;">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">Output Ratio</MudText>
+                                            <MudText Typo="Typo.body2" Style="font-weight: 700; color: #22c55e;">@outputRatio.ToString("F0")%</MudText>
+                                        </div>
+                                    </div>
+                                    @if (req.DurationMs > 0)
+                                    {
+                                        <MudStack Row="true" Spacing="3">
+                                            <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">
+                                                ⏱️ @(req.DurationMs >= 1000 ? $"{req.DurationMs / 1000.0:F1}s" : $"{req.DurationMs}ms") response time
+                                            </MudText>
+                                            @if (req.OutputTokens > 0 && req.DurationMs > 0)
+                                            {
+                                                <MudText Typo="Typo.caption" Style="color: #8b949e; font-size: 0.65rem;">
+                                                    📊 @((req.OutputTokens / (req.DurationMs / 1000.0)).ToString("F0")) tokens/sec
+                                                </MudText>
+                                            }
+                                        </MudStack>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </MudStack>
             }
             else
             {
@@ -493,9 +609,59 @@
     private int SelectedDays = 30;
     private List<ChartSeries> DailyCostSeries = new();
     private string[] DailyCostLabels = Array.Empty<string>();
-    private List<ChartSeries> ModelCostSeries = new();
+    private double[] ModelCostData = Array.Empty<double>();
     private string[] ModelLabels = Array.Empty<string>();
     private string? _expandedProject;
+    private string? _expandedHistoryItem;
+    private bool _showAllHistory;
+    private List<CategoryCostItem>? CategoryBreakdown;
+
+    private string? _expandedCategory;
+    private int? _expandedRequest;
+
+    private class CategoryCostItem
+    {
+        public string Name { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public string Color { get; set; } = "";
+        public decimal Cost { get; set; }
+        public int Count { get; set; }
+        public int TotalInputTokens { get; set; }
+        public int TotalOutputTokens { get; set; }
+        public decimal AvgCostPerRequest { get; set; }
+        public decimal DailyAvg { get; set; }
+        public int DaysActive { get; set; }
+        public decimal MaxSingleRequest { get; set; }
+        public decimal MinSingleRequest { get; set; }
+    }
+
+    private static readonly Dictionary<string, (string Icon, string Color)> CategoryMeta = new()
+    {
+        ["Development"] = ("🛠️", "#3b82f6"),
+        ["System"] = ("⚙️", "#a855f7"),
+        ["Research"] = ("🔍", "#06b6d4"),
+        ["Communication"] = ("💬", "#22c55e"),
+        ["BugFix"] = ("🐛", "#ef4444"),
+        ["Security"] = ("🔒", "#f59e0b"),
+    };
+
+    private static readonly string[] ChartColors = { "#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#06b6d4", "#ef4444", "#ec4899", "#8b5cf6" };
+    private string GetChartColor(int idx) => ChartColors[idx % ChartColors.Length];
+
+    private string FriendlySessionName(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return "Unknown";
+        // Map known session key patterns to readable names
+        if (key.Contains("main:main")) return "🌐 Atlas (Main)";
+        if (key.Contains("cron:")) return "⏰ " + key.Split(':').LastOrDefault() ?? key;
+        if (key.Contains("isolated:")) return "🔹 " + (key.Split(':').LastOrDefault() ?? key);
+        if (key.Contains("spawn:")) return "🔸 Sub-agent";
+        if (key.StartsWith("agent:")) {
+            var parts = key.Split(':');
+            if (parts.Length >= 3) return parts[1] == "main" ? $"🌐 {parts[2]}" : $"🔹 {parts[2]}";
+        }
+        return key;
+    }
 
     private static readonly string[] ProjectColors = { "#3b82f6", "#f59e0b", "#22c55e", "#a855f7", "#06b6d4", "#ef4444", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316" };
 
@@ -517,9 +683,21 @@
         _expandedProject = _expandedProject == project ? null : project;
     }
 
+    private void ToggleHistoryItem(string title)
+    {
+        _expandedHistoryItem = _expandedHistoryItem == title ? null : title;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAnalyticsAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Inject area fill under the line chart — needs delay for SVG to fully render
+        await Task.Delay(500);
+        try { await JS.InvokeVoidAsync("atlasCharts.addAreaFill", "dailyCostChart"); } catch { }
     }
 
     private async Task SelectPeriod(int days)
@@ -607,17 +785,42 @@
             .Select(d => d.Date.ToString("MMM d"))
             .ToArray();
 
-        // Model Cost Pie Chart
+        // Category breakdown from top requests (individual records have more detail)
+        var allRequests = AnalyticsData.TopRequests ?? new();
+        // We need all usage data for categories — use CostBySession for totals, TopRequests for per-request stats
+        CategoryBreakdown = AnalyticsData.CostBySession
+            .GroupBy(s => s.TaskCategory ?? "Other")
+            .Select(g =>
+            {
+                var hasMeta = CategoryMeta.TryGetValue(g.Key, out var meta);
+                var totalCost = g.Sum(s => s.TotalCost);
+                var totalReqs = g.Sum(s => s.RequestCount);
+                var catRequests = allRequests.Where(r => (r.TaskCategory ?? "Other") == g.Key).ToList();
+                var daysActive = catRequests.Select(r => r.Timestamp.Date).Distinct().Count();
+                var dailyAvg = daysActive > 0 ? totalCost / daysActive : 0;
+                return new CategoryCostItem
+                {
+                    Name = g.Key,
+                    Icon = hasMeta ? meta.Icon : "📊",
+                    Color = hasMeta ? meta.Color : "#8b949e",
+                    Cost = totalCost,
+                    Count = totalReqs,
+                    TotalInputTokens = catRequests.Sum(r => r.InputTokens),
+                    TotalOutputTokens = catRequests.Sum(r => r.OutputTokens),
+                    AvgCostPerRequest = totalReqs > 0 ? totalCost / totalReqs : 0,
+                    DailyAvg = dailyAvg,
+                    DaysActive = daysActive,
+                    MaxSingleRequest = catRequests.Any() ? catRequests.Max(r => r.CostUsd) : 0,
+                    MinSingleRequest = catRequests.Any() ? catRequests.Min(r => r.CostUsd) : 0,
+                };
+            })
+            .OrderByDescending(c => c.Cost)
+            .ToList();
+
+        // Model Cost Donut Chart
         if (AnalyticsData.CostByModel.Count > 0)
         {
-            ModelCostSeries = new()
-            {
-                new ChartSeries
-                {
-                    Name = "Cost by Model",
-                    Data = AnalyticsData.CostByModel.Select(m => (double)m.TotalCost).ToArray()
-                }
-            };
+            ModelCostData = AnalyticsData.CostByModel.Select(m => (double)m.TotalCost).ToArray();
             ModelLabels = AnalyticsData.CostByModel.Select(m => m.Model).ToArray();
         }
     }

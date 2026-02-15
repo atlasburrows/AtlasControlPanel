@@ -2,7 +2,7 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<div class="radial-fab" id="radialFab">
+<div class="radial-fab" id="radialFab" onclick="if(window.radialMenu){var r=window.radialMenu;if(!r._active&&!r._shelfOpen){r._el=document.getElementById('radialFab');r._mode='tap';r.open();r._attachTapListeners&&r._attachTapListeners();}else if(r._active){r.close();}}">
     <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
     <div class="radial-fab-hint">
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
@@ -11,12 +11,36 @@
 
 @code {
     private DotNetObjectReference<RadialMenu>? _dotnetRef;
+    private bool _initialized;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            _dotnetRef = DotNetObjectReference.Create(this);
+            // Multiple attempts with increasing delays
+            for (int attempt = 0; attempt < 5 && !_initialized; attempt++)
+            {
+                await Task.Delay(attempt == 0 ? 200 : 500);
+                try
+                {
+                    await InitRadialMenu();
+                }
+                catch
+                {
+                    // JS not ready yet, retry
+                }
+            }
+        }
+    }
+
+    private async Task InitRadialMenu()
+    {
+        if (_initialized) return;
+
+        _dotnetRef ??= DotNetObjectReference.Create(this);
+
+        try
+        {
 
             // Core free features — radial ring
             var coreItems = new[]
@@ -44,7 +68,28 @@
             };
 
             await JS.InvokeVoidAsync("radialMenu.init", _dotnetRef, coreItems, premiumModules, utilItems);
+            _initialized = true;
+
+            // Track navigation to update active states
+            Nav.LocationChanged += OnLocationChanged;
+            UpdateActivePath();
         }
+        catch
+        {
+            // Will retry on next attempt
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateActivePath();
+    }
+
+    private void UpdateActivePath()
+    {
+        var path = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        if (path == "//") path = "/";
+        _ = JS.InvokeVoidAsync("radialMenu.setActivePath", path);
     }
 
     [JSInvokable]
@@ -60,6 +105,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Nav.LocationChanged -= OnLocationChanged;
         _dotnetRef?.Dispose();
     }
 }

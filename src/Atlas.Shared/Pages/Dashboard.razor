@@ -78,7 +78,8 @@
         </MudPaper>
     </MudItem>
     <MudItem xs="6" md="2">
-        <MudPaper Class="pa-3 summary-card summary-card-green" Elevation="0" Style="height: 100%;">
+        <a href="/analytics" style="text-decoration: none; color: inherit; display: block; height: 100%;">
+        <MudPaper Class="pa-3 summary-card summary-card-green" Elevation="0" Style="cursor: pointer; height: 100%;">
             @if (!_tokensLoaded)
             {
                 @CardLoader
@@ -92,6 +93,7 @@
                 </MudStack>
             }
         </MudPaper>
+        </a>
     </MudItem>
     <MudItem xs="6" md="2">
         <a href="/monitoring" style="text-decoration: none; color: inherit; display: block; height: 100%;">
@@ -270,12 +272,14 @@
 
     private static string FormatTime(DateTime ts)
     {
-        var diff = DateTime.UtcNow - ts;
+        // DB stores UTC but Dapper returns Kind=Unspecified — fix it
+        var utc = DateTime.SpecifyKind(ts, DateTimeKind.Utc);
+        var diff = DateTime.UtcNow - utc;
         if (diff.TotalMinutes < 1) return "Just now";
         if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
         if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
         if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
-        return ts.ToLocalTime().ToString("MMM d");
+        return utc.ToLocalTime().ToString("MMM d, h:mm tt");
     }
 
     private void GoToActivity(Guid id) => Nav.NavigateTo($"/activity?highlight={id}");

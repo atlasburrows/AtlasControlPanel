@@ -211,6 +211,24 @@ public class AnalyticsController(
         var recommendations = await costEfficiencyAnalyzer.AnalyzeAsync(usageData, from, to);
 
         var totalCost = await tokenUsageRepository.GetTotalCostAsync(from, to);
+
+        // Top individual expensive requests
+        var topRequests = usageData
+            .OrderByDescending(u => u.CostUsd)
+            .Take(15)
+            .Select(u => new ExpensiveRequest
+            {
+                Timestamp = u.Timestamp,
+                Model = u.Model,
+                Project = u.Project,
+                TaskCategory = u.TaskCategory,
+                InputTokens = u.InputTokens,
+                OutputTokens = u.OutputTokens,
+                CostUsd = u.CostUsd,
+                DurationMs = u.DurationMs ?? 0
+            })
+            .ToList();
+
         var topSessions = costBySession
             .OrderByDescending(s => s.TotalCost)
             .Take(10)
@@ -251,6 +269,7 @@ public class AnalyticsController(
             CostBySession = costBySession,
             CostByProject = costByProject.ToList(),
             TopSessions = topSessions,
+            TopRequests = topRequests,
             Recommendations = recommendations
         });
     }

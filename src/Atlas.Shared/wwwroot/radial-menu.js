@@ -78,18 +78,113 @@ window.radialMenu = {
         rm._items = items;
         rm._premiumModules = premiumModules || [];
         rm._utilItems = utilItems || [];
+        rm._getFab = function () { return document.getElementById('radialFab'); };
+        rm._el = rm._getFab();
+        rm._ensureDelegation();
 
-        var fab = document.getElementById('radialFab');
+        // If user tapped before data was ready, open now
+        if (rm._pendingOpen) {
+            rm._pendingOpen = false;
+            rm._mode = 'tap';
+            rm.open();
+            rm._attachTapListeners();
+        }
+        // Race condition fix: init fires ~200ms, hold timer at 250ms.
+        // Re-check after hold timer would have fired.
+        setTimeout(function () {
+            if (rm._pendingOpen) {
+                rm._pendingOpen = false;
+                rm._mode = 'tap';
+                rm.open();
+                rm._attachTapListeners();
+            }
+        }, 350);
+
+        // Belt + suspenders: bind a direct touchend on the FAB element.
+        // The delegated touchstart calls preventDefault() which kills onclick on mobile.
+        // This direct listener is guaranteed to fire.
+        var fab = rm._getFab();
+        if (fab && !fab._directTapBound) {
+            fab._directTapBound = true;
+            var lastTouch = 0;
+            fab.addEventListener('touchstart', function () { lastTouch = Date.now(); }, { passive: true });
+            fab.addEventListener('touchend', function (e) {
+                // Only handle quick taps (< 200ms), let delegation handle holds
+                if (Date.now() - lastTouch > 200) return;
+                if (rm._active || rm._shelfOpen) return;
+                // Small delay to let delegated handler fire first
+                setTimeout(function () {
+                    if (!rm._active && !rm._shelfOpen) {
+                        e.preventDefault();
+                        rm._el = fab;
+                        rm._mode = 'tap';
+                        rm.open();
+                        rm._attachTapListeners();
+                    }
+                }, 50);
+            });
+        }
+    },
+
+    _activePath: '/',
+
+    setActivePath: function (path) {
+        var rm = window.radialMenu;
+        rm._activePath = path;
+
+        // Update FAB color to match the active page
+        var fab = rm._getFab ? rm._getFab() : document.getElementById('radialFab');
         if (!fab) return;
-        rm._el = fab;
+
+        var activeColor = null;
+        var allItems = (rm._items || []).concat(rm._premiumModules || []);
+        for (var i = 0; i < allItems.length; i++) {
+            var href = allItems[i].href;
+            if (href === '__shelf__') continue; // Skip non-page items
+            if (href === path || (path === '/' && href === '/')) {
+                activeColor = allItems[i].color;
+                break;
+            }
+        }
+
+        if (activeColor) {
+            fab.style.borderColor = activeColor;
+            fab.style.boxShadow = '0 6px 24px rgba(0,0,0,0.5), 0 0 12px ' + activeColor + '40';
+            fab.style.color = activeColor;
+        } else {
+            fab.style.borderColor = '';
+            fab.style.boxShadow = '';
+            fab.style.color = '';
+        }
+    },
+
+    _ensureDelegation: function () {
+        var rm = window.radialMenu;
+        if (rm._delegationBound) return;
+        rm._delegationBound = true;
+        rm._getFab = rm._getFab || function () { return document.getElementById('radialFab'); };
+        rm._bindDelegatedEvents();
+    },
+
+    _bindDelegatedEvents: function () {
+        var rm = window.radialMenu;
 
         var pressTimer = null;
         var holdFired = false;
         var startX = 0, startY = 0;
         var moved = false;
 
-        // ── Touch ──
-        fab.addEventListener('touchstart', function (e) {
+        function isFab(el) {
+            if (!el) return false;
+            var fab = rm._getFab ? rm._getFab() : document.getElementById('radialFab');
+            return fab && (el === fab || fab.contains(el));
+        }
+
+        // ── Touch (delegated) ──
+        document.addEventListener('touchstart', function (e) {
+            if (!isFab(e.target)) return;
+            var fab = rm._getFab();
+            rm._el = fab;
             e.preventDefault();
             if (rm._shelfOpen) { rm.closeShelf(); holdFired = true; return; }
             if (rm._active && rm._mode === 'tap') { rm.close(); holdFired = true; return; }
@@ -108,14 +203,14 @@ window.radialMenu = {
                     rm.open();
                 }
             }, 250);
-        }, { passive: false });
+        }, { passive: false, capture: true });
 
-        fab.addEventListener('touchmove', function (e) {
+        document.addEventListener('touchmove', function (e) {
+            if (!rm._swipeTracking && !(rm._active && rm._mode === 'hold')) return;
             var touch = e.touches[0];
             var dy = rm._swipeStartY - touch.clientY;
             var dx = Math.abs(touch.clientX - startX);
 
-            // Detect upward swipe before hold timer fires
             if (rm._swipeTracking && !rm._active && !holdFired && dy > 60 && dx < 40) {
                 clearTimeout(pressTimer);
                 rm._swipeTracking = false;
@@ -135,13 +230,14 @@ window.radialMenu = {
             }
         }, { passive: false });
 
-        fab.addEventListener('touchend', function (e) {
+        document.addEventListener('touchend', function (e) {
+            if (!isFab(e.target) && !rm._active) return;
             clearTimeout(pressTimer);
             rm._swipeTracking = false;
             if (rm._active && rm._mode === 'hold') {
                 e.preventDefault();
                 rm.selectAndClose();
-            } else if (!holdFired && !moved && !rm._active) {
+            } else if (!holdFired && !moved && !rm._active && isFab(e.target)) {
                 e.preventDefault();
                 rm._mode = 'tap';
                 rm.open();
@@ -149,8 +245,11 @@ window.radialMenu = {
             }
         });
 
-        // ── Mouse ──
-        fab.addEventListener('mousedown', function (e) {
+        // ── Mouse (delegated) ──
+        document.addEventListener('mousedown', function (e) {
+            if (!isFab(e.target)) return;
+            var fab = rm._getFab();
+            rm._el = fab;
             e.preventDefault();
             if (rm._shelfOpen) { rm.closeShelf(); holdFired = true; return; }
             if (rm._active && rm._mode === 'tap') { rm.close(); holdFired = true; return; }
@@ -167,23 +266,47 @@ window.radialMenu = {
             }, 250);
         });
 
-        fab.addEventListener('click', function (e) {
+        document.addEventListener('click', function (e) {
+            if (!isFab(e.target)) return;
             if (holdFired) return;
             if (rm._shelfOpen) { rm.closeShelf(); return; }
             if (rm._active) { rm.close(); return; }
             e.preventDefault();
+            rm._el = rm._getFab();
             rm._mode = 'tap';
             rm.open();
             rm._attachTapListeners();
         });
 
-        // Double-click / double-tap = shelf (mouse)
-        var lastClickTime = 0;
-        fab.addEventListener('dblclick', function (e) {
+        document.addEventListener('dblclick', function (e) {
+            if (!isFab(e.target)) return;
             e.preventDefault();
+            rm._el = rm._getFab();
             if (rm._active) rm.close(true);
             rm.openShelf();
         });
+
+        // ── Click fallback (catches cases touch/mouse handlers miss) ──
+        var lastHandledAt = 0;
+        document.addEventListener('click', function (e) {
+            if (!isFab(e.target)) return;
+            // Skip if touch/mouse already handled this interaction (within 500ms)
+            if (Date.now() - lastHandledAt < 500) return;
+            if (rm._active || rm._shelfOpen) return;
+            e.preventDefault();
+            rm._el = rm._getFab();
+            rm._mode = 'tap';
+            rm.open();
+            rm._attachTapListeners();
+        });
+
+        // Mark when touch/mouse handlers fire so click fallback skips
+        var origOpen = rm.open.bind(rm);
+        var origClose = rm.close.bind(rm);
+        var origShelf = rm.openShelf.bind(rm);
+        rm.open = function () { lastHandledAt = Date.now(); return origOpen(); };
+        rm.close = function (s) { lastHandledAt = Date.now(); return origClose(s); };
+        rm.openShelf = function () { lastHandledAt = Date.now(); return origShelf(); };
     },
 
     _onMouseMove: function (e) {
@@ -232,6 +355,11 @@ window.radialMenu = {
     // ═══════════════════════════
     open: function () {
         var rm = window.radialMenu;
+        if (!rm._items || rm._items.length === 0) {
+            // Data not loaded yet — mark pending so init triggers open
+            rm._pendingOpen = true;
+            return;
+        }
         rm._active = true;
         rm._selectedIndex = -1;
 
@@ -331,8 +459,10 @@ window.radialMenu = {
         }
         rm.close(true);
         if (rm._shelfOpen) rm.closeShelf(true);
-        if (href && rm._dotnetRef)
+        if (href && rm._dotnetRef) {
             rm._dotnetRef.invokeMethodAsync('NavigateFromRadial', href);
+            rm.setActivePath(href);
+        }
     },
 
     close: function (silent) {
@@ -510,3 +640,7 @@ window.radialMenu = {
         rm._el.classList.remove('radial-fab-shelf');
     }
 };
+
+// Auto-bind delegated events immediately — don't wait for Blazor init
+// This ensures the FAB is clickable even before the circuit connects
+window.radialMenu._ensureDelegation();

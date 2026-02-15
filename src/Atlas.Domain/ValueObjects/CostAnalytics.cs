@@ -49,6 +49,18 @@ public class TopExpensiveSession
     public double AverageCostPerRequest { get; set; }
 }
 
+public class ExpensiveRequest
+{
+    public DateTime Timestamp { get; set; }
+    public string Model { get; set; } = "";
+    public string? Project { get; set; }
+    public string? TaskCategory { get; set; }
+    public int InputTokens { get; set; }
+    public int OutputTokens { get; set; }
+    public decimal CostUsd { get; set; }
+    public int DurationMs { get; set; }
+}
+
 public class CostEfficiencyRecommendation
 {
     public string Title { get; set; } = string.Empty;
@@ -96,5 +108,6 @@ public class CostAnalyticsSummary
     public List<SessionCostBreakdown> CostBySession { get; set; } = new();
     public List<ProjectCostSummary> CostByProject { get; set; } = new();
     public List<TopExpensiveSession> TopSessions { get; set; } = new();
+    public List<ExpensiveRequest> TopRequests { get; set; } = new();
     public List<CostEfficiencyRecommendation> Recommendations { get; set; } = new();
 }

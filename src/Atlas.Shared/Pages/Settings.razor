@@ -20,6 +20,79 @@
     <MudItem xs="12" md="6">
         <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.CardMembership" Style="color: #8b5cf6;" />
+                <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">License</MudText>
+            </MudStack>
+            <MudStack Spacing="3">
+                <MudStack Spacing="1">
+                    <MudText Style="font-size: 0.85rem; color: #8b949e;">Current Tier</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudChip T="string" Size="Size.Medium" 
+                                 Color="@GetTierColor(_currentLicense?.Tier)" 
+                                 Variant="Variant.Outlined"
+                                 Text="@(_currentLicense?.Tier.ToUpper() ?? "FREE")" />
+                        @if (_currentLicense?.Tier != "free" && _currentLicense?.IsValid == true)
+                        {
+                            <MudText Style="font-size: 0.85rem; color: #10b981;">✓ Active</MudText>
+                        }
+                    </MudStack>
+                </MudStack>
+
+                @if (!string.IsNullOrEmpty(_currentLicense?.Email))
+                {
+                    <MudStack Spacing="1">
+                        <MudText Style="font-size: 0.85rem; color: #8b949e;">Licensed to</MudText>
+                        <MudText Style="color: #e6edf3;">@_currentLicense.Email</MudText>
+                    </MudStack>
+                }
+
+                @if (_currentLicense?.Tier != "free")
+                {
+                    <MudStack Spacing="1">
+                        <MudText Style="font-size: 0.85rem; color: #8b949e;">Expires</MudText>
+                        <MudText Style="color: #e6edf3;">
+                            @_currentLicense?.ExpiresAt.ToLocalTime().ToString("MMM d, yyyy")
+                            @if (_currentLicense?.DaysUntilExpiry >= 0)
+                            {
+                                <span style="color: #8b949e;"> (@_currentLicense.DaysUntilExpiry days remaining)</span>
+                            }
+                        </MudText>
+                    </MudStack>
+                }
+
+                <MudStack Spacing="1">
+                    <MudText Style="font-size: 0.85rem; color: #8b949e;">Unlocked Modules</MudText>
+                    <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                        @if (_currentLicense?.Modules?.Count > 0)
+                        {
+                            @foreach (var module in _currentLicense.Modules)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" 
+                                         Variant="Variant.Outlined" Text="@module" />
+                            }
+                        }
+                        else
+                        {
+                            <MudText Style="font-size: 0.85rem; color: #8b949e;">Dashboard, Tasks, Activity</MudText>
+                        }
+                    </MudStack>
+                </MudStack>
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.CardMembership"
+                               OnClick="() => _licenseDialogVisible = true"
+                               FullWidth="true">
+                        @(_currentLicense?.Tier == "free" ? "Activate License" : "Update License")
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
                 <MudIcon Icon="@Icons.Material.Filled.Notifications" Style="color: #f59e0b;" />
                 <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Notifications</MudText>
             </MudStack>
@@ -282,6 +355,63 @@
     </DialogActions>
 </MudDialog>
 
+<MudDialog @bind-Visible="_licenseDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.CardMembership" Style="color: #8b5cf6;" />
+            <MudText Typo="Typo.h6" Style="font-weight: 600; color: #e6edf3;">Activate License</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="4">
+            <MudText Style="color: #8b949e;">
+                Enter your license key to unlock premium features.
+            </MudText>
+
+            <MudTextField T="string"
+                          Label="License Key"
+                          @bind-Value="_licenseKeyInput"
+                          TextFieldType="TextFieldType.Password"
+                          HelperText="Paste your license key here"
+                          Lines="5"
+                          Variant="Variant.Outlined"
+                          FullWidth="true"
+                          Style="color: #e6edf3;" />
+
+            @if (!string.IsNullOrEmpty(_licenseErrorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true">
+                    @_licenseErrorMessage
+                </MudAlert>
+            }
+
+            @if (!string.IsNullOrEmpty(_licenseSuccessMessage))
+            {
+                <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Dense="true">
+                    @_licenseSuccessMessage
+                </MudAlert>
+            }
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="() => ClearLicense()" 
+                           Disabled="@(IsFreeOrActivating())">
+                    Clear License
+                </MudButton>
+                <MudSpacer />
+                <MudLink Href="https://atlas-control-panel.com/pricing" Target="_blank">
+                    Get License →
+                </MudLink>
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _licenseDialogVisible = false">Close</MudButton>
+        <MudButton Color="Color.Primary" OnClick="ActivateLicense" Disabled="@(string.IsNullOrWhiteSpace(_licenseKeyInput) || _activatingLicense)">
+            @(_activatingLicense ? "Activating..." : "Activate")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private bool _requireCredentialApproval = true;
     private bool _requireFinancialApproval = true;
@@ -291,6 +421,15 @@
     private bool _costWarnings = true;
     private bool _darkMode = true;
     private bool _compactView;
+
+    // License
+    private LicenseStatusDto? _currentLicense;
+    private bool _licenseDialogVisible;
+    private bool _activatingLicense;
+    private string _licenseKeyInput = "";
+    private string _licenseErrorMessage = "";
+    private bool IsFreeOrActivating() => _currentLicense?.Tier == "free" || _activatingLicense;
+    private string _licenseSuccessMessage = "";
 
     // Credential Vault
     private List<SecureCredentialDto> _credentials = new();
@@ -312,6 +451,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadLicense();
         await LoadCredentials();
         await LoadDevices();
     }
@@ -322,6 +462,96 @@
         client.BaseAddress = new Uri(Nav.BaseUri);
         return client;
     }
+
+    // License Management
+    private async Task LoadLicense()
+    {
+        try
+        {
+            using var client = CreateClient();
+            _currentLicense = await client.GetFromJsonAsync<LicenseStatusDto>("api/license");
+        }
+        catch
+        {
+            // Default to free tier if API unavailable
+            _currentLicense = new LicenseStatusDto { Tier = "free", IsValid = true };
+        }
+    }
+
+    private async Task ActivateLicense()
+    {
+        if (string.IsNullOrWhiteSpace(_licenseKeyInput))
+            return;
+
+        _activatingLicense = true;
+        _licenseErrorMessage = "";
+        _licenseSuccessMessage = "";
+
+        try
+        {
+            using var client = CreateClient();
+            var response = await client.PostAsJsonAsync("api/license", new { licenseKey = _licenseKeyInput });
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LicenseStatusDto>();
+                if (result != null)
+                {
+                    _currentLicense = result;
+                    _licenseSuccessMessage = $"License activated! Welcome, {result.Email}. Tier: {result.Tier}";
+                    _licenseKeyInput = "";
+                    await Task.Delay(2000);
+                    _licenseDialogVisible = false;
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _licenseErrorMessage = "Failed to activate license. Please check your key and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _licenseErrorMessage = $"Error activating license: {ex.Message}";
+        }
+        finally
+        {
+            _activatingLicense = false;
+        }
+    }
+
+    private async Task ClearLicense()
+    {
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Clear License",
+            "This will revert to free tier. Continue?",
+            yesText: "Clear", cancelText: "Cancel");
+
+        if (confirm == true)
+        {
+            try
+            {
+                using var client = CreateClient();
+                var response = await client.DeleteAsync("api/license");
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadLicense();
+                    Snackbar.Add("License cleared. Reverted to free tier.", Severity.Info);
+                }
+            }
+            catch
+            {
+                Snackbar.Add("Failed to clear license.", Severity.Error);
+            }
+        }
+    }
+
+    private Color GetTierColor(string? tier) => (tier?.ToLowerInvariant()) switch
+    {
+        "pro" => Color.Warning,
+        "team" => Color.Success,
+        _ => Color.Default
+    };
 
     private async Task LoadDevices()
     {
@@ -493,6 +723,18 @@
     }
 
     // DTOs
+    private class LicenseStatusDto
+    {
+        public bool IsValid { get; set; }
+        public string Tier { get; set; } = "free";
+        public string Email { get; set; } = "";
+        public List<string> Modules { get; set; } = new();
+        public DateTime IssuedAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public string LicenseId { get; set; } = "";
+        public int DaysUntilExpiry { get; set; }
+    }
+
     private class SecureCredentialDto
     {
         public Guid Id { get; set; }
