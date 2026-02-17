@@ -1,6 +1,7 @@
 window.radialMenu = {
     _active: false,
     _shelfOpen: false,
+    _lastCloseTime: 0,  // debounce: prevent reopen immediately after close
     _mode: null,        // 'hold' or 'tap'
     _items: [],
     _premiumModules: [],
@@ -355,6 +356,8 @@ window.radialMenu = {
     // ═══════════════════════════
     open: function () {
         var rm = window.radialMenu;
+        // Debounce: don't reopen within 400ms of closing
+        if (Date.now() - rm._lastCloseTime < 400) return;
         if (!rm._items || rm._items.length === 0) {
             // Data not loaded yet — mark pending so init triggers open
             rm._pendingOpen = true;
@@ -470,6 +473,7 @@ window.radialMenu = {
         if (!silent) { rm._haptic(10); rm._soundClose(); }
         rm._active = false;
         rm._mode = null;
+        rm._lastCloseTime = Date.now();
         rm._selectedIndex = -1;
         if (rm._overlay) { rm._overlay.remove(); rm._overlay = null; }
         if (rm._el) rm._el.classList.remove('radial-fab-active');
@@ -621,6 +625,7 @@ window.radialMenu = {
         var rm = window.radialMenu;
         if (!rm._shelfOpen) return;
         rm._shelfOpen = false;
+        rm._lastCloseTime = Date.now();
 
         if (!silent) { rm._haptic(10); rm._soundClose(); }
 

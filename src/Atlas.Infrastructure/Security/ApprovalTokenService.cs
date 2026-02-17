@@ -45,6 +45,14 @@ public class ApprovalTokenService : IApprovalTokenService
     public bool ValidateToken(Guid requestId, string token)
     {
         var expected = GenerateToken(requestId);
+        // Support partial token matching (callback_data has 64-char limit, token may be truncated)
+        if (token.Length < expected.Length)
+        {
+            var expectedPrefix = expected[..token.Length];
+            return CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(expectedPrefix),
+                Encoding.UTF8.GetBytes(token));
+        }
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(expected),
             Encoding.UTF8.GetBytes(token));

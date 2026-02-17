@@ -33,7 +33,6 @@ public class TaskRepository(IDbConnectionFactory connectionFactory) : ITaskRepos
 
     private static object CreateParams(TaskItem task) => new
     {
-        task.Id,
         task.Title,
         task.Description,
         Status = task.Status.ToString(),

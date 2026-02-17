@@ -37,13 +37,31 @@ public class TelegramNotificationService(IConfiguration config, IHttpClientFacto
 
     // Track Telegram message IDs for credential request notifications so we can edit them after action
     private static readonly Dictionary<Guid, int> _requestMessageIds = new();
+    
+    // Dedup: track which request IDs already had notifications sent (prevents double-send from any code path)
+    private static readonly HashSet<Guid> _sentNotificationIds = new();
 
     /// <summary>
     /// Send a credential access request notification with Approve/Deny inline buttons.
     /// </summary>
     public async Task<bool> SendCredentialRequestNotification(Guid requestId, string credentialName, string reason, int durationMinutes, string? hmacToken = null)
     {
+        // DEBUG: Log every call to find the ghost sender
+        logger.LogCritical("🔴 TelegramNotificationService.SendCredentialRequestNotification CALLED for {RequestId}. Stack: {Stack}", 
+            requestId, Environment.StackTrace);
         if (!IsConfigured) return false;
+        
+        // Dedup: only one notification per request ID
+        lock (_sentNotificationIds)
+        {
+            if (_sentNotificationIds.Contains(requestId))
+            {
+                logger.LogWarning("DEDUP: Blocked duplicate notification for request {RequestId}. Stack: {Stack}", 
+                    requestId, Environment.StackTrace);
+                return false;
+            }
+            _sentNotificationIds.Add(requestId);
+        }
 
         try
         {
@@ -60,14 +78,17 @@ public class TelegramNotificationService(IConfiguration config, IHttpClientFacto
                        $"<b>Request ID:</b> <code>{requestId}</code>\n\n" +
                        $"⏳ Awaiting your approval...",
                 parse_mode = "HTML",
+                // Callback buttons — token embedded in callback_data
+                // When owner taps, callback routes through OpenClaw to AI session
+                // AI relays token to server's approval endpoint — can't forge tokens
                 reply_markup = new
                 {
                     inline_keyboard = new[]
                     {
                         new object[]
                         {
-                            new { text = "✅ Approve", url = $"{PublicUrl}/api/notifications/credential/{requestId}/approve{(hmacToken is not null ? $"?token={hmacToken}" : "")}" },
-                            new { text = "❌ Deny", url = $"{PublicUrl}/api/notifications/credential/{requestId}/deny{(hmacToken is not null ? $"?token={hmacToken}" : "")}" }
+                            new { text = "✅ Approve", callback_data = $"vigil:approve:{requestId}:{hmacToken}" },
+                            new { text = "❌ Deny", callback_data = $"vigil:deny:{requestId}:{hmacToken}" }
                         }
                     }
                 }

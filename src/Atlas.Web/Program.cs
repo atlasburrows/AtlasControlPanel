@@ -46,7 +46,9 @@ builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5263") });
-builder.Services.AddSingleton<Atlas.Web.Services.TelegramNotificationService>();
+builder.Services.AddSingleton<Atlas.Web.Services.TelegramNotificationService>(); // Legacy — kept for backward compat
+builder.Services.AddSingleton<Atlas.Web.Services.NotificationService>();
+builder.Services.AddSingleton<Atlas.Web.Services.OpenClawGatewayService>();
 builder.Services.AddHostedService<Atlas.Infrastructure.Services.HealthGuardianService>();
 builder.Services.AddSingleton<Atlas.Infrastructure.Security.IApprovalTokenService, Atlas.Infrastructure.Security.ApprovalTokenService>();
 builder.Services.AddSingleton<Atlas.Infrastructure.Security.IApprovalLockoutService, Atlas.Infrastructure.Security.ApprovalLockoutService>();

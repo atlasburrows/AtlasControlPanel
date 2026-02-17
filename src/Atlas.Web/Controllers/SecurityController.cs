@@ -1,6 +1,7 @@
 using Atlas.Application.Common.Interfaces;
 using Atlas.Domain.Entities;
 using Atlas.Domain.Enums;
+using Atlas.Infrastructure.Security;
 using Atlas.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,7 +14,9 @@ public class SecurityController(
     ICredentialRepository credentialRepository,
     ICredentialAccessLogRepository accessLogRepository,
     ICredentialGroupRepository credentialGroupRepository,
-    TelegramNotificationService telegram) : ControllerBase
+    NotificationService notificationService,
+    TelegramNotificationService telegram,
+    IApprovalTokenService tokenService) : ControllerBase
 {
     [HttpGet("permissions")]
     public async Task<ActionResult<IEnumerable<PermissionRequest>>> GetPermissions()
@@ -172,8 +175,8 @@ public class SecurityController(
             await accessLogRepository.CreateAsync(log);
         }
 
-        // Telegram push notification is handled by the OpenClaw plugin (uses public URL)
-        // Do NOT send a duplicate from the server (which uses localhost)
+        // OpenClaw handles credential notifications at the infrastructure level.
+        // Do NOT send a duplicate notification from here — OpenClaw's built-in system notifies the owner.
         
         return Created($"api/security/permissions/{created.Id}", created);
     }

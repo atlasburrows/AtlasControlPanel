@@ -31,7 +31,7 @@ public class ActivityController(IActivityRepository activityRepository) : Contro
     }
 
     [HttpPost]
-    public async Task<ActionResult<ActivityLog>> Create(ActivityLog log)
+    public async Task<ActionResult<ActivityLog>> Create([FromBody] ActivityLog log)
     {
         var created = await activityRepository.CreateAsync(log);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);

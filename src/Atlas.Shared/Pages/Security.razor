@@ -37,13 +37,13 @@
                                             </MudChip>
                                         }
                                     </div>
-                                    <MudText Typo="Typo.caption" Style="color: #6b7280;">@req.RequestedAt.ToString("MMM d, h:mm tt")</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280;">@DateTime.SpecifyKind(req.RequestedAt, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, h:mm tt")</MudText>
                                 </div>
                                 <MudText Style="color: #c9d1d9; font-size: 0.9rem;">@req.Description</MudText>
                                 @if (req.ExpiresAt.HasValue)
                                 {
                                     <MudText Typo="Typo.caption" Style="color: #f59e0b; margin-top: 4px;">
-                                        Expires: @req.ExpiresAt.Value.ToString("MMM d, h:mm tt")
+                                        Expires: @DateTime.SpecifyKind(req.ExpiresAt.Value, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, h:mm tt")
                                     </MudText>
                                 }
                             </MudCardContent>
@@ -87,7 +87,7 @@
                         </div>
                         <MudText Style="color: #c9d1d9; font-size: 0.85rem;">@req.Description</MudText>
                         <div style="display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
-                            <MudText Typo="Typo.caption" Style="color: #6b7280;">@(req.ResolvedAt?.ToString("MMM d, h:mm tt") ?? "-")</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #6b7280;">@(req.ResolvedAt.HasValue ? DateTime.SpecifyKind(req.ResolvedAt.Value, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, h:mm tt") : "-" ?? "-")</MudText>
                             @if (!string.IsNullOrEmpty(req.ResolvedBy))
                             {
                                 <MudText Typo="Typo.caption" Style="color: #6b7280;">by @req.ResolvedBy</MudText>
@@ -178,7 +178,7 @@
                 <MudTh Style="color: #8b949e; font-weight: 600;">Details</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd Style="color: #6b7280;">@context.Timestamp.ToString("MMM d, h:mm tt")</MudTd>
+                <MudTd Style="color: #6b7280;">@DateTime.SpecifyKind(context.Timestamp, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, h:mm tt")</MudTd>
                 <MudTd Style="color: #c9d1d9;">@context.Action</MudTd>
                 <MudTd>
                     <MudChip T="string" Size="Size.Small" Style="@GetSeverityStyle(context.Severity)" Variant="Variant.Outlined">

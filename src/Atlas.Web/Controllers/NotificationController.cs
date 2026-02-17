@@ -10,7 +10,7 @@ namespace Atlas.Web.Controllers;
 [ApiController]
 [Route("api/notifications")]
 public class NotificationController(
-    TelegramNotificationService telegram,
+    NotificationService notificationService,
     ISecurityRepository securityRepository,
     IApprovalTokenService tokenService,
     IApprovalLockoutService lockoutService) : ControllerBase
@@ -20,11 +20,23 @@ public class NotificationController(
     /// The server sends the notification so it can track the message ID for later editing
     /// (removing buttons and showing approval/denial status).
     /// </summary>
+    // Dedup: track which request IDs already had notifications sent
+    private static readonly HashSet<Guid> _notifiedRequestIds = new();
+
     [HttpPost("credential-request")]
     public async Task<IActionResult> SendCredentialRequestNotification([FromBody] CredentialNotificationDto dto)
     {
+        // Dedup: only send one notification per request ID
+        lock (_notifiedRequestIds)
+        {
+            if (_notifiedRequestIds.Contains(dto.RequestId))
+                return Ok(new { sent = false, reason = "duplicate", token = (string?)null });
+            _notifiedRequestIds.Add(dto.RequestId);
+        }
+
         var hmacToken = tokenService.GenerateToken(dto.RequestId);
-        var sent = await telegram.SendCredentialRequestNotification(
+        // Route through OpenClaw gateway instead of direct Telegram API
+        var sent = await notificationService.SendCredentialRequestNotification(
             dto.RequestId, dto.CredentialName, dto.Reason, dto.DurationMinutes, hmacToken);
         return Ok(new { sent, token = hmacToken });
     }
@@ -72,6 +84,82 @@ public class NotificationController(
 
         return await HandleCredentialDecision(requestId, approved: false);
     }
+
+    /// <summary>
+    /// Token-verified credential resolution — called by AI after owner taps callback button.
+    /// The HMAC token was embedded in the callback_data and can only be obtained by the owner tapping the button.
+    /// AI cannot forge this token.
+    /// </summary>
+    /// <summary>
+    /// Token-verified credential resolution — called by AI after owner taps callback button.
+    /// The HMAC token was embedded in the callback_data and can only be obtained by the owner tapping the button.
+    /// AI cannot forge this token.
+    /// </summary>
+    [HttpPost("credential/{requestId:guid}/resolve")]
+    public async Task<IActionResult> ResolveWithToken(Guid requestId, [FromBody] TokenResolveDto dto)
+    {
+        // Verify HMAC token — this proves the owner tapped the button
+        if (string.IsNullOrEmpty(dto.Token) || !tokenService.ValidateToken(requestId, dto.Token))
+        {
+            return StatusCode(403, new { error = "Invalid approval token" });
+        }
+
+        if (lockoutService.IsLockedOut)
+            return StatusCode(423, new { error = "Approvals locked due to suspicious activity" });
+
+        // Check already resolved
+        var permissions = await securityRepository.GetAllPermissionRequestsAsync();
+        var existing = permissions.FirstOrDefault(p => p.Id == requestId);
+        if (existing is not null && existing.Status != PermissionStatus.Pending)
+        {
+            var already = existing.Status == PermissionStatus.Approved ? "approved" : "denied";
+            return Ok(new { resolved = false, reason = $"Already {already}" });
+        }
+
+        // Anomaly detection
+        if (dto.Approved && existing is not null)
+        {
+            var elapsed = DateTime.UtcNow - existing.RequestedAt;
+            if (elapsed.TotalSeconds < 5)
+            {
+                await securityRepository.CreateAuditAsync(new SecurityAudit
+                {
+                    Action = "SuspiciousApproval",
+                    Details = $"Credential request {requestId} approved {elapsed.TotalSeconds:F1}s after creation.",
+                    Severity = Severity.Critical
+                });
+                lockoutService.RecordSuspiciousApproval();
+            }
+        }
+
+        var status = dto.Approved ? PermissionStatus.Approved : PermissionStatus.Denied;
+        var updated = await securityRepository.UpdatePermissionRequestAsync(requestId, status, "Owner (Telegram)");
+        if (updated is null)
+            return NotFound(new { error = "Request not found" });
+
+        await securityRepository.CreateAuditAsync(new SecurityAudit
+        {
+            Action = dto.Approved ? "CredentialApproved" : "CredentialDenied",
+            Details = $"Request {requestId} {(dto.Approved ? "approved" : "denied")} via callback button (token-verified)",
+            Severity = dto.Approved ? Severity.Warning : Severity.Info
+        });
+
+        var credName = updated.Description?.Split('\'').ElementAtOrDefault(1) ?? "Unknown";
+
+        // Edit the notification to show result and remove buttons (via gateway)
+        _ = notificationService.UpdateAfterDecision(requestId, credName, dto.Approved);
+
+        // Wake the AI session
+        var emoji = dto.Approved ? "✅" : "❌";
+        var word = dto.Approved ? "approved" : "denied";
+        _ = notificationService.SendWakeEvent(
+            $"[Vigil] Credential request {emoji} {word}: '{credName}' (request {requestId}). " +
+            (dto.Approved ? "You can now retrieve it with atlas_get_credential." : "Access was denied by the owner."));
+
+        return Ok(new { resolved = true, approved = dto.Approved, credentialName = credName });
+    }
+
+    public record TokenResolveDto(bool Approved, string Token);
 
     /// <summary>
     /// Manual unlock of approval lockout (called from UI).
@@ -152,8 +240,12 @@ public class NotificationController(
                 : $"Access to <strong>{System.Net.WebUtility.HtmlEncode(credName)}</strong> has been denied.";
             color = approved ? "#22c55e" : "#ef4444";
 
-            // Update Telegram message: remove buttons, show result
-            _ = telegram.UpdateAfterDecision(requestId, credName, approved);
+            // Notify the AI session about the decision so it can continue working
+            var statusEmoji = approved ? "✅" : "❌";
+            var statusWord = approved ? "approved" : "denied";
+            _ = notificationService.SendWakeEvent(
+                $"[Vigil] Credential request {statusEmoji} {statusWord}: '{credName}' (request {requestId}). " +
+                (approved ? "You can now retrieve it with atlas_get_credential." : "Access was denied by the owner."));
         }
 
         return RenderPage(title, body, color);

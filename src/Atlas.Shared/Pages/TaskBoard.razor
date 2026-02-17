@@ -35,7 +35,7 @@
                         <MudText Typo="Typo.subtitle2" Style="font-weight: 600; color: #e6edf3;">@task.Title</MudText>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <MudText Typo="Typo.caption" Style="color: #6b7280;">
-                                @task.CreatedAt.ToString("MMM d, yyyy")
+                                @DateTime.SpecifyKind(task.CreatedAt, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, yyyy")
                             </MudText>
                             @if (task.IsScheduled)
                             {
@@ -80,7 +80,7 @@
                     <div class="@($"task-card task-card-{task.Status.ToString().ToLowerInvariant()}")" style="display: flex; align-items: center; justify-content: space-between;">
                         <div @onclick="() => SelectTask(t)" style="flex: 1;">
                             <MudText Typo="Typo.subtitle2" Style="font-weight: 600; color: #e6edf3;">@task.Title</MudText>
-                            <MudText Typo="Typo.caption" Style="color: #6b7280; margin-top: 2px;">@task.CreatedAt.ToString("MMM d")</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #6b7280; margin-top: 2px;">@DateTime.SpecifyKind(task.CreatedAt, DateTimeKind.Utc).ToLocalTime().ToString("MMM d")</MudText>
                         </div>
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                             @foreach (var target in new[] { TaskItemStatus.Backlog, TaskItemStatus.ToDo, TaskItemStatus.InProgress, TaskItemStatus.Review, TaskItemStatus.Done, TaskItemStatus.Archived })
@@ -145,13 +145,13 @@
                 }
                 <div>
                     <MudText Typo="Typo.caption" Style="color: #8b949e;">Created</MudText>
-                    <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.CreatedAt.ToString("MMM d, yyyy h:mm tt")</MudText>
+                    <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@DateTime.SpecifyKind(_selectedTask.CreatedAt, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, yyyy h:mm tt")</MudText>
                 </div>
                 @if (_selectedTask.UpdatedAt.HasValue)
                 {
                     <div>
                         <MudText Typo="Typo.caption" Style="color: #8b949e;">Updated</MudText>
-                        <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.UpdatedAt.Value.ToString("MMM d, yyyy h:mm tt")</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@DateTime.SpecifyKind(_selectedTask.UpdatedAt.Value, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, yyyy h:mm tt")</MudText>
                     </div>
                 }
                 @if (_selectedTask.IsScheduled)
@@ -160,7 +160,7 @@
                         <MudText Typo="Typo.caption" Style="color: #8b949e;">Scheduled</MudText>
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Style="color: #3b82f6;" />
-                            <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.ScheduledAt!.Value.ToString("MMM d, yyyy h:mm tt")</MudText>
+                            <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@DateTime.SpecifyKind(_selectedTask.ScheduledAt!.Value, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, yyyy h:mm tt")</MudText>
                         </MudStack>
                     </div>
                 }
@@ -178,7 +178,7 @@
                 {
                     <div>
                         <MudText Typo="Typo.caption" Style="color: #8b949e;">Next Run</MudText>
-                        <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@_selectedTask.NextRunAt.Value.ToString("MMM d, yyyy h:mm tt")</MudText>
+                        <MudText Typo="Typo.body2" Style="color: #c9d1d9;">@DateTime.SpecifyKind(_selectedTask.NextRunAt.Value, DateTimeKind.Utc).ToLocalTime().ToString("MMM d, yyyy h:mm tt")</MudText>
                     </div>
                 }
             </MudStack>
