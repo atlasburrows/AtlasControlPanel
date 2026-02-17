@@ -175,8 +175,17 @@ public class SecurityController(
             await accessLogRepository.CreateAsync(log);
         }
 
-        // OpenClaw handles credential notifications at the infrastructure level.
-        // Do NOT send a duplicate notification from here — OpenClaw's built-in system notifies the owner.
+        // Send notification with callback buttons for approve/deny
+        try
+        {
+            var token = tokenService.GenerateToken(created.Id);
+            await notificationService.SendCredentialRequestNotification(
+                created.Id, dto.CredentialName, dto.Reason, dto.DurationMinutes ?? 30, token);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Vigil] Failed to send credential notification: {ex.Message}");
+        }
         
         return Created($"api/security/permissions/{created.Id}", created);
     }
