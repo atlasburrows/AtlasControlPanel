@@ -1,6 +1,8 @@
-# Atlas Control Panel
+# Vigil
 
 **Self-hosted control panel for OpenClaw AI agents. Activity logging, task management, credential approval, and real-time monitoring — enforced at infrastructure level.**
+
+_Vigil is developed by [Zenido Labs](https://zenidolabs.com)._
 
 ---
 
@@ -21,7 +23,7 @@
 - **.NET 10 SDK** — [Download](https://dotnet.microsoft.com/download)
 - **SQL Server 2019+** or **SQLite** (coming soon)
   - For SQL Server: Express Edition or higher
-  - Connection string: `Server=localhost;Database=AtlasControlPanel;Integrated Security=true;`
+  - Connection string: `Server=localhost;Database=Vigil;Integrated Security=true;`
 - **OpenClaw** — [GitHub](https://github.com/OpenClaw/OpenClaw)
 - **Node.js 18+** (optional, for plugin development)
 
@@ -57,11 +59,11 @@ Edit `src/Atlas.Web/appsettings.json`:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=AtlasControlPanel;Integrated Security=true;"
+    "DefaultConnection": "Server=localhost;Database=Vigil;Integrated Security=true;"
   },
   "Auth": {
     "ApiKey": "your-secure-api-key-here",
-    "CookieName": ".Atlas.Auth",
+    "CookieName: ".Vigil.Auth",
     "CookieSecure": false,
     "CookieSameSite": "Lax"
   },
@@ -135,7 +137,7 @@ Add the plugin configuration to your `openclaw.json`:
 
 ```json
 "ConnectionStrings": {
-  "DefaultConnection": "Server=localhost;Database=AtlasControlPanel;Integrated Security=true;"
+  "DefaultConnection": "Server=localhost;Database=Vigil;Integrated Security=true;"
 }
 ```
 
@@ -148,7 +150,7 @@ Add the plugin configuration to your `openclaw.json`:
 ```json
 "Auth": {
   "ApiKey": "your-api-key-minimum-32-chars",
-  "CookieName": ".Atlas.Auth",
+  "CookieName: ".Vigil.Auth",
   "CookieSecure": false,
   "CookieSameSite": "Lax"
 }
@@ -186,7 +188,7 @@ Add the plugin configuration to your `openclaw.json`:
 
 ### openclaw.json Integration
 
-Add Atlas Control Panel to your OpenClaw configuration:
+Add Vigil to your OpenClaw configuration:
 
 ```json
 {
@@ -212,7 +214,7 @@ Add Atlas Control Panel to your OpenClaw configuration:
 
 **Configuration Options:**
 
-- **url**: Base URL of Atlas Control Panel (must match `Api.BaseUrl` in appsettings.json)
+- **url**: Base URL of Vigil (must match `Api.BaseUrl` in appsettings.json)
 - **apiKey**: Secret key for plugin authentication (must match `Auth.ApiKey`)
 - **autoLog**: Automatically log agent activities
 - **autoReportStatus**: Automatically report agent status changes
@@ -222,7 +224,7 @@ Add Atlas Control Panel to your OpenClaw configuration:
 
 ## HTTPS / Reverse Proxy
 
-For production deployments or remote access, always use HTTPS. Atlas Control Panel does not enforce HTTPS at the application level; instead, use a reverse proxy.
+For production deployments or remote access, always use HTTPS. Vigil does not enforce HTTPS at the application level; instead, use a reverse proxy.
 
 ### Option 1: Caddy (Recommended)
 
@@ -313,7 +315,7 @@ When enabling HTTPS, update `appsettings.json`:
 
 ### Cookie Authentication
 
-- Atlas Control Panel uses secure HTTP-only cookies for session management
+- Vigil uses secure HTTP-only cookies for session management
 - Cookies are set with SameSite protection to prevent CSRF attacks
 - Enable `CookieSecure: true` when using HTTPS (see HTTPS section)
 
@@ -326,7 +328,7 @@ When enabling HTTPS, update `appsettings.json`:
 
 ### Network Security
 
-- Restrict access to Atlas Control Panel using firewall rules or authentication
+- Restrict access to Vigil using firewall rules or authentication
 - Use HTTPS for all external access
 - Consider IP whitelisting for API endpoints
 - Keep OpenClaw and .NET SDK updated for security patches
@@ -335,7 +337,7 @@ When enabling HTTPS, update `appsettings.json`:
 
 ## Architecture Overview
 
-Atlas Control Panel consists of:
+Vigil consists of:
 
 1. **Web Application** (`src/Atlas.Web/`) — ASP.NET Core 10 web UI and REST API
 2. **Database** — SQL Server schema with stored procedures for activity logging, task management, and credential tracking
@@ -414,7 +416,7 @@ Contributions are welcome! Please:
 
 ## License
 
-Atlas Control Panel is licensed under the **MIT License**. See [LICENSE](LICENSE) file for details.
+Vigil is licensed under the **MIT License**. See [LICENSE](LICENSE) file for details.
 
 ---
 

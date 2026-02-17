@@ -1,4 +1,4 @@
-# Atlas Control Panel — Go-To-Market Strategy
+# Vigil — Go-To-Market Strategy
 
 **Author:** Atlas (with Mikal's revision)
 **Date:** 2026-02-14
@@ -8,7 +8,7 @@
 
 ## 1. What We're Selling
 
-**Atlas Control Panel** is a self-hosted monitoring and management dashboard for AI agents running on OpenClaw. It gives bot owners visibility, control, and security over their AI assistant — activity logging, task management, credential vaults, cost tracking, and real-time status.
+**Vigil** is a self-hosted monitoring and management dashboard for AI agents running on OpenClaw. It gives bot owners visibility, control, and security over their AI assistant — activity logging, task management, credential vaults, cost tracking, and real-time status.
 
 **The one-liner:** *"Mission control for your AI agent."*
 

@@ -1,4 +1,4 @@
-# Atlas Control Panel — Production Plan & Architecture Overview
+# Vigil — Production Plan & Architecture Overview
 
 **Last Updated:** 2026-02-12
 **Status:** Pre-release (development)

@@ -7,7 +7,7 @@ using System.Text.Json;
 using Microsoft.IdentityModel.Tokens;
 
 /// <summary>
-/// Generates signed JWT license keys for Atlas Control Panel.
+/// Generates signed JWT license keys for Vigil.
 /// This is server-side only and should NEVER be shipped to customers.
 /// The private key is loaded from environment or file, never embedded in code.
 /// </summary>

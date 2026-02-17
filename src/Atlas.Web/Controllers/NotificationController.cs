@@ -1,6 +1,7 @@
 using Atlas.Application.Common.Interfaces;
 using Atlas.Domain.Entities;
 using Atlas.Domain.Enums;
+using Atlas.Infrastructure.Security;
 using Atlas.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,36 +11,86 @@ namespace Atlas.Web.Controllers;
 [Route("api/notifications")]
 public class NotificationController(
     TelegramNotificationService telegram,
-    ISecurityRepository securityRepository) : ControllerBase
+    ISecurityRepository securityRepository,
+    IApprovalTokenService tokenService,
+    IApprovalLockoutService lockoutService) : ControllerBase
 {
     /// <summary>
-    /// Send a push notification for a credential request (called by plugin).
+    /// Generate HMAC token and send Telegram notification for a credential request.
+    /// The server sends the notification so it can track the message ID for later editing
+    /// (removing buttons and showing approval/denial status).
     /// </summary>
     [HttpPost("credential-request")]
     public async Task<IActionResult> SendCredentialRequestNotification([FromBody] CredentialNotificationDto dto)
     {
+        var hmacToken = tokenService.GenerateToken(dto.RequestId);
         var sent = await telegram.SendCredentialRequestNotification(
-            dto.RequestId, dto.CredentialName, dto.Reason, dto.DurationMinutes);
-        
-        return Ok(new { sent });
+            dto.RequestId, dto.CredentialName, dto.Reason, dto.DurationMinutes, hmacToken);
+        return Ok(new { sent, token = hmacToken });
     }
 
     /// <summary>
     /// URL-based approve endpoint (opened from Telegram inline button).
+    /// Requires valid HMAC token in query string.
     /// </summary>
     [HttpGet("credential/{requestId:guid}/approve")]
-    public async Task<ContentResult> ApproveCredential(Guid requestId)
+    public async Task<ContentResult> ApproveCredential(Guid requestId, [FromQuery] string? token)
     {
+        // Verify HMAC token
+        if (string.IsNullOrEmpty(token) || !tokenService.ValidateToken(requestId, token))
+        {
+            return RenderPage("🚫 Access Denied",
+                "Invalid or missing approval token. This endpoint requires a valid HMAC token.",
+                "#ef4444");
+        }
+
+        // Check lockout
+        if (lockoutService.IsLockedOut)
+        {
+            return RenderPage("🔒 Approvals Locked",
+                "Credential approvals are temporarily locked due to suspicious activity. Unlock from the Control Panel UI.",
+                "#ef4444");
+        }
+
         return await HandleCredentialDecision(requestId, approved: true);
     }
 
     /// <summary>
     /// URL-based deny endpoint (opened from Telegram inline button).
+    /// Requires valid HMAC token in query string.
     /// </summary>
     [HttpGet("credential/{requestId:guid}/deny")]
-    public async Task<ContentResult> DenyCredential(Guid requestId)
+    public async Task<ContentResult> DenyCredential(Guid requestId, [FromQuery] string? token)
     {
+        // Verify HMAC token
+        if (string.IsNullOrEmpty(token) || !tokenService.ValidateToken(requestId, token))
+        {
+            return RenderPage("🚫 Access Denied",
+                "Invalid or missing approval token. This endpoint requires a valid HMAC token.",
+                "#ef4444");
+        }
+
         return await HandleCredentialDecision(requestId, approved: false);
+    }
+
+    /// <summary>
+    /// Manual unlock of approval lockout (called from UI).
+    /// </summary>
+    [HttpPost("approval-lockout/unlock")]
+    public IActionResult UnlockApprovals()
+    {
+        lockoutService.ManualUnlock();
+        return Ok(new { unlocked = true });
+    }
+
+    /// <summary>
+    /// Get current lockout status.
+    /// </summary>
+    [HttpGet("approval-lockout/status")]
+    public IActionResult GetLockoutStatus()
+    {
+        var (count, until) = lockoutService.GetStatus();
+        return Ok(new { suspiciousCount = count, lockoutUntil = until, isLockedOut = lockoutService.IsLockedOut });
     }
 
     private async Task<ContentResult> HandleCredentialDecision(Guid requestId, bool approved)
@@ -54,6 +105,23 @@ public class NotificationController(
             return RenderPage($"⚠️ Already {alreadyStatus}", 
                 $"This credential request was already <strong>{alreadyStatus}</strong> by {System.Net.WebUtility.HtmlEncode(existing.ResolvedBy ?? "someone")}.", 
                 "#f59e0b");
+        }
+
+        // Anomaly detection: check time since creation
+        if (approved && existing is not null)
+        {
+            var elapsed = DateTime.UtcNow - existing.RequestedAt;
+            if (elapsed.TotalSeconds < 5)
+            {
+                // Flag as suspicious
+                await securityRepository.CreateAuditAsync(new SecurityAudit
+                {
+                    Action = "SuspiciousApproval",
+                    Details = $"Credential request {requestId} approved only {elapsed.TotalSeconds:F1}s after creation. Possible automated approval.",
+                    Severity = Severity.Critical
+                });
+                lockoutService.RecordSuspiciousApproval();
+            }
         }
 
         var status = approved ? PermissionStatus.Approved : PermissionStatus.Denied;

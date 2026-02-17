@@ -21,10 +21,10 @@
         <Nullable>enable</Nullable>
 
         <!-- Display name -->
-        <ApplicationTitle>Atlas Control Panel</ApplicationTitle>
+        <ApplicationTitle>Vigil</ApplicationTitle>
 
         <!-- App Identifier -->
-        <ApplicationId>com.atlascontrolpanel.app</ApplicationId>
+        <ApplicationId>com.zenidolabs.vigil</ApplicationId>
 
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>

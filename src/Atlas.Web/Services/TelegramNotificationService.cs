@@ -6,7 +6,32 @@ public class TelegramNotificationService(IConfiguration config, IHttpClientFacto
 {
     private string? BotToken => config["Telegram:BotToken"];
     private string? ChatId => config["Telegram:ChatId"];
-    private string PublicUrl => config["App:PublicUrl"] ?? config["App:BaseUrl"] ?? "http://127.0.0.1:5263";
+    private static string? _cachedPublicUrl;
+    private string PublicUrl => _cachedPublicUrl ??= DetectPublicUrl();
+
+    private string DetectPublicUrl()
+    {
+        // Always prefer auto-detected external IP for notification URLs.
+        // Users won't have custom domains pointing to their server — external IP is reliable.
+        // The configured PublicUrl (e.g. zenidolabs.com) may not route to the correct port.
+        try
+        {
+            using var client = httpFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
+            var ip = client.GetStringAsync("http://api.ipify.org").Result.Trim();
+            var port = config["App:Port"] ?? "5263";
+            var url = $"http://{ip}:{port}";
+            logger.LogInformation("Auto-detected public URL for notifications: {Url}", url);
+            return url;
+        }
+        catch (Exception ex)
+        {
+            // Fall back to configured URL or localhost
+            var configured = config["App:PublicUrl"];
+            logger.LogWarning(ex, "External IP detection failed, falling back to config");
+            return configured ?? config["App:BaseUrl"] ?? "http://127.0.0.1:5263";
+        }
+    }
 
     public bool IsConfigured => !string.IsNullOrEmpty(BotToken) && !string.IsNullOrEmpty(ChatId);
 
@@ -16,7 +41,7 @@ public class TelegramNotificationService(IConfiguration config, IHttpClientFacto
     /// <summary>
     /// Send a credential access request notification with Approve/Deny inline buttons.
     /// </summary>
-    public async Task<bool> SendCredentialRequestNotification(Guid requestId, string credentialName, string reason, int durationMinutes)
+    public async Task<bool> SendCredentialRequestNotification(Guid requestId, string credentialName, string reason, int durationMinutes, string? hmacToken = null)
     {
         if (!IsConfigured) return false;
 
@@ -41,8 +66,8 @@ public class TelegramNotificationService(IConfiguration config, IHttpClientFacto
                     {
                         new object[]
                         {
-                            new { text = "✅ Approve", url = $"{PublicUrl}/api/notifications/credential/{requestId}/approve" },
-                            new { text = "❌ Deny", url = $"{PublicUrl}/api/notifications/credential/{requestId}/deny" }
+                            new { text = "✅ Approve", url = $"{PublicUrl}/api/notifications/credential/{requestId}/approve{(hmacToken is not null ? $"?token={hmacToken}" : "")}" },
+                            new { text = "❌ Deny", url = $"{PublicUrl}/api/notifications/credential/{requestId}/deny{(hmacToken is not null ? $"?token={hmacToken}" : "")}" }
                         }
                     }
                 }
@@ -166,6 +191,59 @@ public class TelegramNotificationService(IConfiguration config, IHttpClientFacto
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to update credential notification message");
+        }
+    }
+
+    public async Task<bool> SendHealthAlert(string serviceName, string status, string? details = null)
+    {
+        if (!IsConfigured) return false;
+        try
+        {
+            var client = httpFactory.CreateClient();
+            var apiUrl = $"https://api.telegram.org/bot{BotToken}/sendMessage";
+            var text = $"⚠️ <b>{EscapeHtml(serviceName)}</b> is <b>{EscapeHtml(status)}</b>";
+            if (!string.IsNullOrEmpty(details))
+                text += $"\n\n{EscapeHtml(details)}";
+
+            var payload = new { chat_id = ChatId, text, parse_mode = "HTML" };
+            var response = await client.PostAsJsonAsync(apiUrl, payload);
+            logger.LogInformation("Health alert sent for {Service}: {Status}", serviceName, response.StatusCode);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send health alert");
+            return false;
+        }
+    }
+
+    public async Task<bool> SendHealthRecovery(string serviceName, TimeSpan downtime)
+    {
+        if (!IsConfigured) return false;
+        try
+        {
+            var client = httpFactory.CreateClient();
+            var apiUrl = $"https://api.telegram.org/bot{BotToken}/sendMessage";
+            var downtimeStr = downtime.TotalMinutes < 1
+                ? $"{downtime.TotalSeconds:F0}s"
+                : downtime.TotalHours < 1
+                    ? $"{downtime.TotalMinutes:F0}m"
+                    : $"{downtime.TotalHours:F1}h";
+
+            var payload = new
+            {
+                chat_id = ChatId,
+                text = $"✅ <b>{EscapeHtml(serviceName)}</b> has recovered after {downtimeStr}",
+                parse_mode = "HTML"
+            };
+            var response = await client.PostAsJsonAsync(apiUrl, payload);
+            logger.LogInformation("Health recovery sent for {Service}: {Status}", serviceName, response.StatusCode);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send health recovery notification");
+            return false;
         }
     }
 

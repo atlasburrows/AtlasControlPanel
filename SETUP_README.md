@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the database setup for the Atlas Control Panel application. The complete schema is generated and stored in `setup.sql`.
+This document describes the database setup for the Vigil application. The complete schema is generated and stored in `setup.sql`.
 
 ## Quick Start
 
@@ -179,7 +179,7 @@ SELECT name, type_desc FROM sys.indexes WHERE object_id = OBJECT_ID('ActivityLog
 
 ## Support
 
-For questions or issues, contact the Atlas Control Panel development team.
+For questions or issues, contact the Vigil development team.
 
 ---
 

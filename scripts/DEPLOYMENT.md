@@ -1,7 +1,7 @@
 # OpenClaw Patcher Scripts - Deployment Summary
 
 **Created**: 2026-02-14 21:35 EST  
-**Project**: Atlas Control Panel  
+**Project**: Vigil  
 **Location**: `C:\Users\mikal\source\repos\AtlasControlPanel\scripts`
 
 ## 📦 Deliverables

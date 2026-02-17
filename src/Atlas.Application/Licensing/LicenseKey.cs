@@ -1,7 +1,7 @@
 namespace Atlas.Application.Licensing;
 
 /// <summary>
-/// Domain model representing a license key for Atlas Control Panel.
+/// Domain model representing a license key for Vigil.
 /// Contains licensing information including tier, modules, and expiration.
 /// </summary>
 public class LicenseKey

@@ -191,6 +191,53 @@ public static class SqliteInitializer
             CREATE INDEX IF NOT EXISTS idx_tokenusage_timestamp ON TokenUsage(Timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_tokenusage_model ON TokenUsage(Model);
             CREATE INDEX IF NOT EXISTS idx_tokenusage_session ON TokenUsage(SessionKey);
+
+            -- HealthChecks table
+            CREATE TABLE IF NOT EXISTS HealthChecks (
+                Id TEXT PRIMARY KEY,
+                ServiceName TEXT NOT NULL,
+                Status TEXT NOT NULL,
+                CheckedAt TEXT NOT NULL,
+                ResponseTimeMs REAL,
+                Details TEXT,
+                AutoRestarted INTEGER NOT NULL DEFAULT 0
+            );
+
+            -- HealthEvents table
+            CREATE TABLE IF NOT EXISTS HealthEvents (
+                Id TEXT PRIMARY KEY,
+                ServiceName TEXT NOT NULL,
+                EventType TEXT NOT NULL,
+                OccurredAt TEXT NOT NULL,
+                Details TEXT,
+                NotificationSent INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_healthchecks_service_time ON HealthChecks(ServiceName, CheckedAt DESC);
+            CREATE INDEX IF NOT EXISTS idx_healthevents_service_time ON HealthEvents(ServiceName, OccurredAt DESC);
+
+            -- CredentialGroups table
+            CREATE TABLE IF NOT EXISTS CredentialGroups (
+                Id TEXT PRIMARY KEY,
+                Name TEXT NOT NULL,
+                Category TEXT,
+                Description TEXT,
+                Icon TEXT,
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT NOT NULL
+            );
+
+            -- CredentialGroupMembers junction table
+            CREATE TABLE IF NOT EXISTS CredentialGroupMembers (
+                GroupId TEXT NOT NULL,
+                CredentialId TEXT NOT NULL,
+                PRIMARY KEY (GroupId, CredentialId),
+                FOREIGN KEY (GroupId) REFERENCES CredentialGroups(Id) ON DELETE CASCADE,
+                FOREIGN KEY (CredentialId) REFERENCES SecureCredentials(Id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_credentialgroups_name ON CredentialGroups(Name);
+            CREATE INDEX IF NOT EXISTS idx_credentialgroupmembers_credential ON CredentialGroupMembers(CredentialId);
         ";
 
         command.ExecuteNonQuery();

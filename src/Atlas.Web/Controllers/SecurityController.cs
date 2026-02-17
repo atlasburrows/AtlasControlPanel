@@ -12,6 +12,7 @@ public class SecurityController(
     ISecurityRepository securityRepository,
     ICredentialRepository credentialRepository,
     ICredentialAccessLogRepository accessLogRepository,
+    ICredentialGroupRepository credentialGroupRepository,
     TelegramNotificationService telegram) : ControllerBase
 {
     [HttpGet("permissions")]
@@ -32,6 +33,20 @@ public class SecurityController(
     [HttpPut("permissions/{id:guid}")]
     public async Task<ActionResult<PermissionRequest>> UpdatePermission(Guid id, [FromBody] UpdatePermissionDto dto)
     {
+        // Fix 3: Block credential-type approval via this general endpoint
+        if (dto.Status == PermissionStatus.Approved)
+        {
+            var permissions = await securityRepository.GetAllPermissionRequestsAsync();
+            var existing = permissions.FirstOrDefault(p => p.Id == id);
+            if (existing is not null && existing.RequestType == PermissionRequestType.CredentialAccess)
+            {
+                return StatusCode(403, new
+                {
+                    error = "Credential requests cannot be approved through this endpoint. Use the dedicated notification approve endpoint with a valid HMAC token."
+                });
+            }
+        }
+
         var updated = await securityRepository.UpdatePermissionRequestAsync(id, dto.Status, dto.ResolvedBy);
         return updated is null ? NotFound() : Ok(updated);
     }
@@ -43,6 +58,41 @@ public class SecurityController(
     [HttpPost("credentials/request")]
     public async Task<ActionResult<PermissionRequest>> RequestCredential([FromBody] CredentialRequestDto dto)
     {
+        // If a groupName is provided, create a single permission request for the entire group
+        if (!string.IsNullOrEmpty(dto.GroupName))
+        {
+            var group = await credentialGroupRepository.GetByNameAsync(dto.GroupName);
+            if (group is null)
+                return NotFound($"Credential group '{dto.GroupName}' not found");
+
+            var groupCredentials = (await credentialGroupRepository.GetCredentialsInGroupAsync(group.Id)).ToList();
+            if (groupCredentials.Count == 0)
+                return BadRequest("Group has no credentials");
+
+            var credNames = string.Join(", ", groupCredentials.Select(c => c.Name));
+            var groupRequest = new PermissionRequest
+            {
+                RequestType = PermissionRequestType.CredentialAccess,
+                Description = $"Group access requested for '{group.Name}' ({credNames}): {dto.Reason}",
+                Status = PermissionStatus.Pending,
+                RequestedAt = DateTime.UtcNow,
+                Urgency = "Normal",
+                Category = $"CredentialGroup:{group.Name}",
+                ExpiresAt = DateTime.UtcNow.AddMinutes(dto.DurationMinutes ?? 30),
+                CredentialId = groupCredentials.First().Id
+            };
+            var createdGroup = await securityRepository.CreatePermissionRequestAsync(groupRequest);
+
+            await securityRepository.CreateAuditAsync(new SecurityAudit
+            {
+                Action = "CredentialGroupAccessRequest",
+                Details = $"Group '{group.Name}' access requested ({groupCredentials.Count} credentials): {dto.Reason}",
+                Severity = Severity.Warning
+            });
+
+            return Created($"api/security/permissions/{createdGroup.Id}", createdGroup);
+        }
+
         var credentialId = Guid.Empty;
         var vaultMode = "locked";
         
@@ -238,6 +288,6 @@ public class SecurityController(
 }
 
 public record UpdatePermissionDto(PermissionStatus Status, string ResolvedBy);
-public record CredentialRequestDto(string CredentialName, string Reason, int? DurationMinutes);
+public record CredentialRequestDto(string CredentialName, string Reason, int? DurationMinutes, string? GroupName = null);
 public record TelegramCallbackDto(string? CallbackQueryId, string? Data, string? MessageId, string? FromUsername, string? FromId);
 public record UpdateVaultModeDto(string? VaultMode);

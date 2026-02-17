@@ -1,4 +1,4 @@
-# Atlas Control Panel - Licensing System
+# Vigil - Licensing System
 
 ## Overview
 

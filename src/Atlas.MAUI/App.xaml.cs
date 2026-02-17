@@ -11,6 +11,6 @@ public partial class App : MauiApplication
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(new MainPage()) { Title = "Atlas Control Panel" };
+        return new Window(new MainPage()) { Title = "Vigil" };
     }
 }

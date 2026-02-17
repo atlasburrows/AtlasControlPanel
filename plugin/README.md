@@ -1,6 +1,8 @@
-# Atlas Control Panel — OpenClaw Plugin
+# Vigil — OpenClaw Plugin
 
-Automatic activity logging, task management, credential approval, and real-time monitoring for [Atlas Control Panel](https://github.com/atlas-control-panel/atlas).
+Automatic activity logging, task management, credential approval, and real-time monitoring for [Vigil](https://github.com/zenidolabs/vigil).
+
+_Vigil is developed by [Zenido Labs](https://zenidolabs.com)._
 
 ## What It Does
 
@@ -12,10 +14,10 @@ Automatic activity logging, task management, credential approval, and real-time 
 - **Cost tracking** — pushes per-call cost to daily totals
 
 ### Agent Tools (bot uses intentionally)
-- `atlas_create_task` — Create tasks on the board
-- `atlas_update_task` — Update task status
-- `atlas_log_activity` — Log custom activity entries
-- `atlas_request_credential` — Request credential access (requires owner approval)
+- `atlas_create_task` — Create tasks on the Vigil board
+- `atlas_update_task` — Update task status on Vigil
+- `atlas_log_activity` — Log custom activity entries to Vigil
+- `atlas_request_credential` — Request credential access via Vigil (requires owner approval)
 
 ### Real-Time Status
 Pushes bot status every 30 seconds:
@@ -28,10 +30,10 @@ Pushes bot status every 30 seconds:
 
 ```bash
 # Copy to extensions folder
-cp -r atlas-control-panel ~/.openclaw/extensions/
+cp -r vigil ~/.openclaw/extensions/
 
 # Or install from npm (when published)
-# openclaw plugin install @atlas/openclaw-plugin
+# openclaw plugin install @vigil/openclaw-plugin
 ```
 
 ## Configure
@@ -42,7 +44,7 @@ Add to your `openclaw.json`:
 {
   "plugins": {
     "entries": {
-      "atlas-control-panel": {
+      "vigil": {
         "enabled": true,
         "config": {
           "apiUrl": "http://localhost:5263",
@@ -65,7 +67,7 @@ Add to your `openclaw.json`:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `apiUrl` | `http://localhost:5263` | Atlas Control Panel URL |
+| `apiUrl` | `http://localhost:5263` | Vigil API URL |
 | `apiKey` | _(empty)_ | API key for authentication |
 | `autoLog.toolCalls` | `true` | Log model/tool usage |
 | `autoLog.execCommands` | `true` | Log exec commands |
@@ -76,7 +78,7 @@ Add to your `openclaw.json`:
 ## Requirements
 
 - [OpenClaw](https://github.com/openclaw/openclaw) >= 2026.2.0
-- [Atlas Control Panel](https://github.com/atlas-control-panel/atlas) running and accessible
+- [Vigil](https://github.com/zenidolabs/vigil) running and accessible
 
 ## License
 

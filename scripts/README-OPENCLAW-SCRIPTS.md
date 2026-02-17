@@ -393,7 +393,7 @@ For issues with OpenClaw itself:
 
 ## License
 
-These scripts are part of the Atlas Control Panel project. Use in accordance with project license.
+These scripts are part of the Vigil project. Use in accordance with project license.
 
 ---
 

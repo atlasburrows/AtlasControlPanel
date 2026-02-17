@@ -1,6 +1,6 @@
 {
-  "id": "atlas-control-panel",
-  "name": "Atlas Control Panel",
+  "id": "vigil",
+  "name": "Vigil",
   "description": "Self-hosted control panel plugin for OpenClaw. Automatic activity logging, task management, credential approval, cost tracking, and real-time status monitoring — enforced at infrastructure level.",
   "version": "1.0.0",
   "configSchema": {
@@ -9,7 +9,7 @@
     "properties": {
       "apiUrl": {
         "type": "string",
-        "description": "Atlas Control Panel API base URL"
+        "description": "Vigil API base URL"
       },
       "apiKey": {
         "type": "string",
@@ -34,8 +34,8 @@
     }
   },
   "uiHints": {
-    "apiUrl": { "label": "Control Panel API URL", "placeholder": "http://localhost:5300" },
-    "apiKey": { "label": "Control Panel API Key", "sensitive": true },
+    "apiUrl": { "label": "Vigil API URL", "placeholder": "http://localhost:5263" },
+    "apiKey": { "label": "Vigil API Key", "sensitive": true },
     "autoLog.toolCalls": { "label": "Auto-log Tool Calls" },
     "autoLog.execCommands": { "label": "Auto-log Exec Commands" },
     "autoLog.sessionEvents": { "label": "Auto-log Session Events" },

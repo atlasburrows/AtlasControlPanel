@@ -4,7 +4,7 @@ using Atlas.Application.Licensing;
 using Microsoft.AspNetCore.Mvc;
 
 /// <summary>
-/// API endpoints for managing license keys in Atlas Control Panel
+/// API endpoints for managing license keys in Vigil
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]

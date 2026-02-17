@@ -1,21 +1,21 @@
 {
-  "name": "@atlas/openclaw-plugin",
+  "name": "@vigil/openclaw-plugin",
   "version": "1.0.0",
-  "description": "Atlas Control Panel plugin for OpenClaw — automatic activity logging, task management, credential approval, cost tracking, and real-time status monitoring. Enforced at infrastructure level.",
+  "description": "Vigil plugin for OpenClaw — automatic activity logging, task management, credential approval, cost tracking, and real-time status monitoring. Enforced at infrastructure level.",
   "keywords": [
     "openclaw",
     "openclaw-plugin",
-    "atlas",
+    "vigil",
     "control-panel",
     "monitoring",
     "activity-logging",
     "task-management"
   ],
-  "author": "Atlas Control Panel",
+  "author": "Zenido Labs",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/atlas-control-panel/openclaw-plugin"
+    "url": "https://github.com/zenidolabs/vigil-openclaw-plugin"
   },
   "openclaw": {
     "extensions": ["./index.ts"]

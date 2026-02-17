@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using Microsoft.IdentityModel.Tokens;
 
 /// <summary>
-/// Validates JWT-based license keys for Atlas Control Panel.
+/// Validates JWT-based license keys for Vigil.
 /// Uses an embedded public key for offline verification - no phone home required.
 /// </summary>
 public class LicenseValidator

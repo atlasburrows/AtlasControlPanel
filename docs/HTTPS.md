@@ -1,6 +1,6 @@
-# HTTPS Setup Guide for Atlas Control Panel
+# HTTPS Setup Guide for Vigil
 
-This guide explains how to secure your Atlas Control Panel with HTTPS for production use and remote access.
+This guide explains how to secure your Vigil with HTTPS for production use and remote access.
 
 ---
 
@@ -9,7 +9,7 @@ This guide explains how to secure your Atlas Control Panel with HTTPS for produc
 - **Encryption** — Protects sensitive data (API keys, credentials, authentication tokens) in transit
 - **Authentication** — Proves your server's identity to clients, preventing man-in-the-middle attacks
 - **Security Headers** — HTTPS enables security features like HSTS, CSP, and secure cookies
-- **Remote Access** — Essential when accessing Atlas Control Panel over the internet
+- **Remote Access** — Essential when accessing Vigil over the internet
 - **Compliance** — Many organizations require HTTPS for any web application handling credentials or sensitive data
 
 **Without HTTPS:** Credentials and API keys are sent in plain text over the network. Anyone on the network path can intercept and use them.

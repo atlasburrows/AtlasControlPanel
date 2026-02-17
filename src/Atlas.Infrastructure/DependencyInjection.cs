@@ -35,7 +35,9 @@ public static class DependencyInjection
             services.AddScoped<IChatMessageRepository, SqliteChatMessageRepository>();
             services.AddScoped<IPairingRepository, SqlitePairingRepository>();
             services.AddScoped<ICredentialAccessLogRepository>(sp => new SqliteCredentialAccessLogRepository(connectionString));
+            services.AddScoped<ICredentialGroupRepository, SqliteCredentialGroupRepository>();
             services.AddScoped<ITokenUsageRepository, SqliteTokenUsageRepository>();
+            services.AddScoped<IHealthRepository, SqliteHealthRepository>();
         }
         else
         {
@@ -51,7 +53,9 @@ public static class DependencyInjection
             services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             services.AddScoped<IPairingRepository, PairingRepository>();
             services.AddScoped<ICredentialAccessLogRepository, CredentialAccessLogRepository>();
+            services.AddScoped<ICredentialGroupRepository, CredentialGroupRepository>();
             services.AddScoped<ITokenUsageRepository, TokenUsageRepository>();
+            services.AddScoped<IHealthRepository, HealthRepository>();
         }
         
         // Register analytics services

@@ -1,4 +1,4 @@
-# Atlas Control Panel — Go-to-Market Strategy
+# Vigil — Go-to-Market Strategy
 
 ## The Product
 A self-hosted management dashboard for AI assistants running on OpenClaw. Task tracking, activity logging, security approvals, cost monitoring, credential vault — everything you need to manage an AI partner from one place. Desktop, web, and mobile from a single codebase.
@@ -27,7 +27,7 @@ A self-hosted management dashboard for AI assistants running on OpenClaw. Task t
 "The control panel for your AI assistant."
 
 ### Elevator Pitch
-"Atlas Control Panel gives you full visibility and control over your AI assistant — track tasks, monitor costs, approve permissions, and audit every action. Self-hosted, privacy-first, works with OpenClaw out of the box."
+"Vigil gives you full visibility and control over your AI assistant — track tasks, monitor costs, approve permissions, and audit every action. Self-hosted, privacy-first, works with OpenClaw out of the box."
 
 ### Key Differentiators
 1. **Privacy-first / Self-hosted** — No data leaves your machine. No central server. You own everything.
@@ -92,7 +92,7 @@ A self-hosted management dashboard for AI assistants running on OpenClaw. Task t
    - "How to manage your AI assistant's permissions"
    - "Tracking AI API costs: a practical guide"
    - "Self-hosted AI management: why privacy matters"
-   - "Setting up OpenClaw with Atlas Control Panel"
+   - "Setting up OpenClaw with Vigil"
 2. **YouTube** — Setup tutorials, feature walkthroughs, "day in the life with an AI assistant"
 3. **Dev.to / Hashnode** — Technical posts about the architecture (.NET, Blazor, Dapper)
 4. **SEO targets:** "AI assistant dashboard", "OpenClaw dashboard", "manage AI costs", "AI permission management", "self-hosted AI tools"
