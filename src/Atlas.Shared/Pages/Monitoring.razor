@@ -1,11 +1,145 @@
 @page "/monitoring"
 @using Atlas.Application.Common.Interfaces
 @using Atlas.Domain.Entities
+@using System.Collections.Generic
+@using System.Linq
 @inject IMonitoringRepository MonitoringRepo
+@inject IHealthRepository HealthRepo
 
 <MudText Typo="Typo.h5" Class="mb-4" Style="font-weight: 600; color: #e6edf3;">Monitoring</MudText>
 
-<MudGrid Spacing="4">
+<!-- Service Health Cards -->
+<MudGrid Spacing="4" Class="mb-4">
+    @if (_healthStatus != null)
+    {
+        @foreach (var service in _healthStatus.OrderBy(s => s.ServiceName))
+        {
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="2">
+                            <MudIcon Icon="@(service.Status == "Healthy" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"
+                                     Style="@($"color: {(service.Status == "Healthy" ? "#22c55e" : "#ef4444")}; font-size: 2.5rem;")" />
+                        </MudItem>
+                        <MudItem xs="10">
+                            <MudText Typo="Typo.h6" Style="font-weight: 700; color: #e6edf3;">@service.ServiceName</MudText>
+                            <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                Status: <span style="color: #e6edf3;">@service.Status</span>
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="color: #8b949e;" Class="mt-1">
+                                Last Check: <span style="color: #e6edf3;">@service.CheckedAt.ToString("MMM d, h:mm tt")</span>
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                                Response Time: <span style="color: #e6edf3;">@service.ResponseTimeMs ms</span>
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+        }
+    }
+</MudGrid>
+
+<!-- Uptime Percentage Bars (7-day) -->
+@if (_uptimeStats.Count > 0)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+        <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">7-Day Uptime</MudText>
+        <MudGrid Spacing="3">
+            @foreach (var uptime in _uptimeStats.OrderBy(u => u.ServiceName))
+            {
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Style="color: #e6edf3; font-weight: 500;">@uptime.ServiceName</MudText>
+                    <MudLinearProgress Value="@(uptime.UptimePercent / 100)" Color="@GetUptimeColor(uptime.UptimePercent)" Class="mt-1 mb-2" />
+                    <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                        @uptime.UptimePercent.ToString("F2")% uptime | Avg response: @uptime.AvgResponseTimeMs ms
+                    </MudText>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+}
+
+<!-- Recent Health Events Timeline -->
+@if (_recentEvents.Count > 0)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+        <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Recent Events</MudText>
+        <MudTimeline TimelinePosition="TimelinePosition.Start" TimelineOrientation="TimelineOrientation.Vertical">
+            @foreach (var evt in _recentEvents.OrderByDescending(e => e.OccurredAt).Take(20))
+            {
+                <MudTimelineItem>
+                    <ItemDot>
+                        <MudIcon Icon="@GetEventIcon(evt.EventType)" 
+                                 Style="@($"color: {GetEventColor(evt.EventType)};")" />
+                    </ItemDot>
+                    <ItemContent>
+                        <MudText Typo="Typo.subtitle2" Style="color: #e6edf3; font-weight: 500;">
+                            @evt.ServiceName - @evt.EventType
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color: #8b949e;">
+                            @evt.OccurredAt.ToString("MMM d, h:mm:ss tt")
+                            @if (evt.NotificationSent)
+                            {
+                                <span style="color: #79c0ff;"> • Notified</span>
+                            }
+                        </MudText>
+                        @if (!string.IsNullOrEmpty(evt.Details))
+                        {
+                            <MudText Typo="Typo.caption" Style="color: #8b949e; margin-top: 4px;">@evt.Details</MudText>
+                        }
+                    </ItemContent>
+                </MudTimelineItem>
+            }
+        </MudTimeline>
+    </MudPaper>
+}
+
+<!-- Health Check History Table -->
+@if (_healthChecks.Count > 0)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+        <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Check History</MudText>
+        <MudTable Items="@_healthChecks.OrderByDescending(h => h.CheckedAt).Take(50)" 
+                  Hover="true" Striped="true"
+                  Style="background: transparent;"
+                  FixedHeader="true" Height="400px">
+            <HeaderContent>
+                <MudTh Style="color: #8b949e;">Service</MudTh>
+                <MudTh Style="color: #8b949e;">Status</MudTh>
+                <MudTh Style="color: #8b949e;">Checked At</MudTh>
+                <MudTh Style="color: #8b949e;">Response (ms)</MudTh>
+                <MudTh Style="color: #8b949e;">Auto Restarted</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd Style="color: #e6edf3;">@context.ServiceName</MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" 
+                             Icon="@(context.Status == "Healthy" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"
+                             Color="@(context.Status == "Healthy" ? Color.Success : Color.Error)"
+                             Style="color: #fff;">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+                <MudTd Style="color: #e6edf3;">@context.CheckedAt.ToString("MMM d, h:mm:ss tt")</MudTd>
+                <MudTd Style="color: #e6edf3;">@context.ResponseTimeMs</MudTd>
+                <MudTd>
+                    @if (context.AutoRestarted)
+                    {
+                        <MudIcon Icon="Icons.Material.Filled.AutoFixHigh" Style="color: #fbbf24;" />
+                    }
+                    else
+                    {
+                        <span style="color: #8b949e;">—</span>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+}
+
+<!-- System Status Cards (kept from original) -->
+<MudGrid Spacing="4" Class="mb-4">
     <MudItem xs="12" md="4">
         <MudPaper Class="pa-5" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
             <MudIcon Icon="@(_status?.GatewayHealth == "Healthy" ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"
@@ -46,10 +180,11 @@
     </MudItem>
 </MudGrid>
 
+<!-- Cost Overview Chart (kept from original) -->
 <MudGrid Class="mt-4" Spacing="4">
     <MudItem xs="12">
         <MudPaper Class="pa-4" Elevation="0" Style="background: #161b22; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
-            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost Overview (Last 7 aays)</MudText>
+            <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight: 600; color: #e6edf3;">Cost Overview (Last 7 Days)</MudText>
             <MudChart ChartType="ChartType.Bar" ChartSeries="@_costSeries" XAxisLabels="@_costLabels"
                       Width="100%" Height="250px"
                       ChartOptions="@(new ChartOptions { YAxisTicks = 5, LineStrokeWidth = 2 })" />
@@ -59,6 +194,11 @@
 
 @code {
     private SystemStatus? _status;
+    private List<HealthCheck> _healthChecks = new();
+    private List<HealthEvent> _recentEvents = new();
+    private List<HealthUptimeStats> _uptimeStats = new();
+    private List<dynamic> _healthStatus = new();
+
     private List<ChartSeries> _costSeries = new()
     {
         new ChartSeries { Name = "Cost ($)", Data = new double[] { 0, 0, 0, 0, 0, 0, 0 } }
@@ -69,6 +209,100 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try { _status = await MonitoringRepo.GetSystemStatusAsync(); } catch { }
+        try 
+        { 
+            _status = await MonitoringRepo.GetSystemStatusAsync(); 
+        } 
+        catch { }
+
+        try
+        {
+            _healthChecks = (await HealthRepo.GetLatestChecksAsync(50)).ToList();
+        }
+        catch { }
+
+        try
+        {
+            _recentEvents = (await HealthRepo.GetEventsAsync(20)).ToList();
+        }
+        catch { }
+
+        try
+        {
+            var gw = await HealthRepo.GetUptimeStatsAsync("OpenClaw Gateway", 7);
+            var vigil = await HealthRepo.GetUptimeStatsAsync("Vigil Server", 7);
+            _uptimeStats = new List<HealthUptimeStats> { gw, vigil };
+        }
+        catch { }
+
+        // Load health status (latest check per service)
+        try
+        {
+            if (_healthChecks.Count > 0)
+            {
+                _healthStatus = _healthChecks
+                    .GroupBy(h => h.ServiceName)
+                    .Select(g => g.OrderByDescending(h => h.CheckedAt).First())
+                    .Cast<dynamic>()
+                    .ToList();
+            }
+        }
+        catch { }
+    }
+
+    private Color GetUptimeColor(double uptimePercent)
+    {
+        if (uptimePercent >= 99.9) return Color.Success;
+        if (uptimePercent >= 99.0) return Color.Warning;
+        if (uptimePercent >= 95.0) return Color.Info;
+        return Color.Error;
+    }
+
+    private string GetEventIcon(string eventType)
+    {
+        return eventType switch
+        {
+            "HealthRestored" => Icons.Material.Filled.CheckCircle,
+            "HealthDegraded" => Icons.Material.Filled.Warning,
+            "ServiceDown" => Icons.Material.Filled.Error,
+            "AutoRestart" => Icons.Material.Filled.RestartAlt,
+            _ => Icons.Material.Filled.Info
+        };
+    }
+
+    private string GetEventColor(string eventType)
+    {
+        return eventType switch
+        {
+            "HealthRestored" => "#22c55e",
+            "HealthDegraded" => "#fbbf24",
+            "ServiceDown" => "#ef4444",
+            "AutoRestart" => "#3b82f6",
+            _ => "#8b949e"
+        };
     }
 }
+
+<style>
+    .summary-card {
+        background: #161b22;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .summary-card-blue {
+        border-left: 4px solid #3b82f6;
+    }
+
+    .summary-card-amber {
+        border-left: 4px solid #fbbf24;
+    }
+
+    .summary-card-purple {
+        border-left: 4px solid #a855f7;
+    }
+
+    .summary-card-green {
+        border-left: 4px solid #22c55e;
+    }
+</style>
