@@ -76,11 +76,13 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install MAUI workload
-        run: dotnet workload install maui-ios
+      - name: Install .NET workloads
+        run: |
+          dotnet workload install maui-ios maui-android
+          dotnet workload restore
 
       - name: Restore dependencies
-        run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj
+        run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:AndroidOnly=false
 
       - name: Build iOS (Debug - Simulator)
         run: |

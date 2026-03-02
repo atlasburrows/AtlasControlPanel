@@ -117,126 +117,94 @@
             </MudButton>
         </div>
 
-        @foreach (var group in _credentialGroups.OrderBy(g => g.Name))
-        {
-            var groupCreds = _credentials.Where(c => _groupMemberships.Any(m => m.GroupId == group.Id && m.CredentialId == c.Id)).ToList();
-            <MudExpansionPanel Style="background: #1c2333; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 8px;"
-                               Class="credential-group-panel">
-                <TitleContent>
-                    <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
-                        <MudIcon Icon="@GetGroupIcon(group.Name)" Color="Color.Primary" Size="Size.Medium" />
-                        <div style="flex: 1;">
-                            <MudText Style="color: #e6edf3; font-weight: 600;">@group.Name</MudText>
-                            @if (!string.IsNullOrEmpty(group.Description))
-                            {
-                                <MudText Typo="Typo.caption" Style="color: #6b7280;">@group.Description</MudText>
-                            }
-                        </div>
-                        <MudChip T="int" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">@groupCreds.Count</MudChip>
-                    </div>
-                </TitleContent>
-                <ChildContent>
-                    <MudGrid Class="mt-2">
-                        @foreach (var cred in groupCreds)
-                        {
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudCard Style="@($"background: #0d1117; border: 1px solid {GetCredCategoryColor(cred.Category)}30; border-left: 3px solid {GetCredCategoryColor(cred.Category)}; border-radius: 8px; height: 100%;")">
-                                    <MudCardContent Style="padding: 12px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                            <MudText Style="color: #e6edf3; font-weight: 500; font-size: 0.9rem;">@cred.Name</MudText>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                                           Style="color: #6b7280;" OnClick="@(() => ConfirmDelete(cred))" />
+        <MudGrid>
+            @foreach (var group in _credentialGroups.OrderBy(g => g.Name))
+            {
+                var groupCreds = _credentials.Where(c => _groupMemberships.Any(m => m.GroupId == group.Id && m.CredentialId == c.Id)).ToList();
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Style="background: #1c2333; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; height: 100%;" 
+                             Class="credential-group-card">
+                        <MudCardContent Style="padding: 16px;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <MudIcon Icon="@GetGroupIcon(group.Name)" Color="Color.Primary" Size="Size.Large" />
+                                <div style="flex: 1;">
+                                    <MudText Style="color: #e6edf3; font-weight: 600; font-size: 1.1rem;">@group.Name</MudText>
+                                    @if (!string.IsNullOrEmpty(group.Description))
+                                    {
+                                        <MudText Typo="Typo.caption" Style="color: #6b7280;">@group.Description</MudText>
+                                    }
+                                </div>
+                                <MudChip T="int" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">@groupCreds.Count</MudChip>
+                            </div>
+                            
+                            <MudDivider Style="background: rgba(255,255,255,0.06); margin: 12px 0;" />
+                            
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                @foreach (var cred in groupCreds.Take(5))
+                                {
+                                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #0d1117; border-radius: 6px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.VpnKey" Size="Size.Small" Style="color: #8b949e;" />
+                                        <div style="flex: 1; min-width: 0;">
+                                            <MudText Style="color: #c9d1d9; font-size: 0.85rem; font-weight: 500;" Class="text-truncate">@cred.Name</MudText>
+                                            @if (!string.IsNullOrEmpty(cred.Username))
+                                            {
+                                                <MudText Typo="Typo.caption" Style="color: #6b7280;" Class="text-truncate">@cred.Username</MudText>
+                                            }
                                         </div>
-                                        <MudChip T="string" Size="Size.Small" Style="@($"color: {GetCredCategoryColor(cred.Category)}; border-color: {GetCredCategoryColor(cred.Category)}; font-size: 0.65rem; margin-top: 4px;")" Variant="Variant.Outlined">
+                                        <MudChip T="string" Size="Size.Small" Style="@($"color: {GetCredCategoryColor(cred.Category)}; border-color: {GetCredCategoryColor(cred.Category)}; font-size: 0.6rem;")" Variant="Variant.Outlined">
                                             @cred.Category
                                         </MudChip>
-                                        @if (!string.IsNullOrEmpty(cred.Username))
-                                        {
-                                            <MudText Typo="Typo.body2" Style="color: #8b949e; margin-top: 4px; font-size: 0.8rem;">
-                                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="vertical-align: middle; font-size: 12px;" /> @cred.Username
-                                            </MudText>
-                                        }
-                                        @if (!string.IsNullOrEmpty(cred.Description))
-                                        {
-                                            <MudText Typo="Typo.caption" Style="color: #6b7280; margin-top: 4px; font-size: 0.75rem; line-height: 1.3;">@cred.Description</MudText>
-                                        }
-                                        <div style="display: flex; justify-content: space-between; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.04);">
-                                            <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.7rem;">
-                                                @(cred.LastAccessedAt.HasValue ? $"Last: {cred.LastAccessedAt.Value:MMM d}" : "Never")
-                                            </MudText>
-                                            <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.7rem;">
-                                                @cred.AccessCount access
-                                            </MudText>
+                                    </div>
+                                }
+                                @if (groupCreds.Count > 5)
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280; text-align: center; margin-top: 4px;">
+                                        +@(groupCreds.Count - 5) more credentials
+                                    </MudText>
+                                }
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+            @* Ungrouped Credentials as a separate card *@
+            @{
+                var groupedCredIds = _groupMemberships.Select(m => m.CredentialId).Distinct().ToHashSet();
+                var ungrouped = _credentials.Where(c => !groupedCredIds.Contains(c.Id)).ToList();
+            }
+            @if (ungrouped.Any())
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Style="background: #1c2333; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; height: 100%;">
+                        <MudCardContent Style="padding: 16px;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <MudIcon Icon="@Icons.Material.Filled.FolderOff" Color="Color.Warning" Size="Size.Large" />
+                                <div style="flex: 1;">
+                                    <MudText Style="color: #e6edf3; font-weight: 600; font-size: 1.1rem;">Ungrouped</MudText>
+                                    <MudText Typo="Typo.caption" Style="color: #6b7280;">Credentials not assigned to any group</MudText>
+                                </div>
+                                <MudChip T="int" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">@ungrouped.Count</MudChip>
+                            </div>
+                            <MudDivider Style="background: rgba(255,255,255,0.06); margin: 12px 0;" />
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                @foreach (var cred in ungrouped)
+                                {
+                                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #0d1117; border-radius: 6px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.VpnKey" Size="Size.Small" Style="color: #8b949e;" />
+                                        <div style="flex: 1; min-width: 0;">
+                                            <MudText Style="color: #c9d1d9; font-size: 0.85rem; font-weight: 500;" Class="text-truncate">@cred.Name</MudText>
                                         </div>
-                                    </MudCardContent>
-                                </MudCard>
-                            </MudItem>
-                        }
-                    </MudGrid>
-                </ChildContent>
-            </MudExpansionPanel>
-        }
-
-        @* Ungrouped Credentials *@
-        @{
-            var groupedCredIds = _groupMemberships.Select(m => m.CredentialId).Distinct().ToHashSet();
-            var ungrouped = _credentials.Where(c => !groupedCredIds.Contains(c.Id)).ToList();
-        }
-        @if (ungrouped.Any())
-        {
-            <MudExpansionPanel Style="background: #1c2333; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-top: 16px;"
-                               Class="credential-group-panel">
-                <TitleContent>
-                    <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
-                        <MudIcon Icon="@Icons.Material.Filled.FolderOff" Color="Color.Warning" Size="Size.Medium" />
-                        <div style="flex: 1;">
-                            <MudText Style="color: #e6edf3; font-weight: 600;">Ungrouped</MudText>
-                            <MudText Typo="Typo.caption" Style="color: #6b7280;">Credentials not assigned to any group</MudText>
-                        </div>
-                        <MudChip T="int" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">@ungrouped.Count</MudChip>
-                    </div>
-                </TitleContent>
-                <ChildContent>
-                    <MudGrid Class="mt-2">
-                        @foreach (var cred in ungrouped)
-                        {
-                            <MudItem xs="12" sm="6" md="4">
-                                <MudCard Style="@($"background: #0d1117; border: 1px solid {GetCredCategoryColor(cred.Category)}30; border-left: 3px solid {GetCredCategoryColor(cred.Category)}; border-radius: 8px; height: 100%;")">
-                                    <MudCardContent Style="padding: 12px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                            <MudText Style="color: #e6edf3; font-weight: 500; font-size: 0.9rem;">@cred.Name</MudText>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                                           Style="color: #6b7280;" OnClick="@(() => ConfirmDelete(cred))" />
-                                        </div>
-                                        <MudChip T="string" Size="Size.Small" Style="@($"color: {GetCredCategoryColor(cred.Category)}; border-color: {GetCredCategoryColor(cred.Category)}; font-size: 0.65rem; margin-top: 4px;")" Variant="Variant.Outlined">
+                                        <MudChip T="string" Size="Size.Small" Style="@($"color: {GetCredCategoryColor(cred.Category)}; border-color: {GetCredCategoryColor(cred.Category)}; font-size: 0.6rem;")" Variant="Variant.Outlined">
                                             @cred.Category
                                         </MudChip>
-                                        @if (!string.IsNullOrEmpty(cred.Username))
-                                        {
-                                            <MudText Typo="Typo.body2" Style="color: #8b949e; margin-top: 4px; font-size: 0.8rem;">
-                                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="vertical-align: middle; font-size: 12px;" /> @cred.Username
-                                            </MudText>
-                                        }
-                                        @if (!string.IsNullOrEmpty(cred.Description))
-                                        {
-                                            <MudText Typo="Typo.caption" Style="color: #6b7280; margin-top: 4px; font-size: 0.75rem; line-height: 1.3;">@cred.Description</MudText>
-                                        }
-                                        <div style="display: flex; justify-content: space-between; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.04);">
-                                            <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.7rem;">
-                                                @(cred.LastAccessedAt.HasValue ? $"Last: {cred.LastAccessedAt.Value:MMM d}" : "Never")
-                                            </MudText>
-                                            <MudText Typo="Typo.caption" Style="color: #6b7280; font-size: 0.7rem;">
-                                                @cred.AccessCount access
-                                            </MudText>
-                                        </div>
-                                    </MudCardContent>
-                                </MudCard>
-                            </MudItem>
-                        }
-                    </MudGrid>
-                </ChildContent>
-            </MudExpansionPanel>
-        }
+                                    </div>
+                                }
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
 
         @if (!_credentials.Any())
         {
