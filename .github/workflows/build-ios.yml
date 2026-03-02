@@ -1,4 +1,4 @@
-name: Build iOS
+name: Build & Deploy iOS to TestFlight
 
 on:
   push:
@@ -9,9 +9,18 @@ on:
       - 'src/Atlas.Domain/**'
       - 'src/Atlas.Application/**'
   workflow_dispatch:
+    inputs:
+      deploy_to_testflight:
+        description: 'Deploy to TestFlight?'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
-  build-ios:
+  build-ios-debug:
     runs-on: macos-15
     
     steps:
@@ -28,7 +37,7 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj
 
-      - name: Build iOS (Debug - no signing)
+      - name: Build iOS (Debug - Simulator)
         run: |
           dotnet build src/Atlas.MAUI/Atlas.MAUI.csproj \
             -f net10.0-ios \
@@ -43,9 +52,10 @@ jobs:
           path: src/Atlas.MAUI/bin/Debug/net10.0-ios/iossimulator-arm64/
           retention-days: 14
 
-  build-ios-device:
+  build-and-deploy-ios:
     runs-on: macos-15
-    if: github.event_name == 'workflow_dispatch'
+    needs: build-ios-debug
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master'
     
     steps:
       - uses: actions/checkout@v4
@@ -58,38 +68,128 @@ jobs:
       - name: Install MAUI workload
         run: dotnet workload install maui-ios
 
-      - name: Install Apple certificate
-        if: env.APPLE_CERTIFICATE != ''
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
-        run: |
-          # Create keychain
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          
-          # Import certificate
-          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
-          
-          # Install provisioning profile
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+      - name: Restore dependencies
+        run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj
 
-      - name: Build iOS (Release - device)
+      - name: Install Apple certificates and profiles
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD || 'temp-password' }}
+        run: |
+          # Create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # Import certificate and provisioning profile from secrets
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: Update Info.plist for Build Number
+        run: |
+          PLIST_FILE="src/Atlas.MAUI/Platforms/iOS/Info.plist"
+          BUILD_NUMBER=$(date +%Y%m%d%H%M)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST_FILE" || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUMBER" "$PLIST_FILE"
+          echo "Set build number to $BUILD_NUMBER"
+
+      - name: Build and Archive iOS App
         run: |
           dotnet publish src/Atlas.MAUI/Atlas.MAUI.csproj \
             -f net10.0-ios \
             -c Release \
             /p:RuntimeIdentifier=ios-arm64 \
-            /p:ArchiveOnBuild=true
+            /p:ArchiveOnBuild=true \
+            /p:EnableAssemblyILStripping=false
 
-      - name: Upload iOS IPA
+      - name: Export IPA
+        run: |
+          ARCHIVE_PATH=$(find src/Atlas.MAUI/bin/Release/net10.0-ios/ios-arm64 -name "*.xcarchive" -type d | head -1)
+          if [ -z "$ARCHIVE_PATH" ]; then
+            echo "No archive found, looking for IPA directly..."
+            IPA_PATH=$(find src/Atlas.MAUI/bin/Release/net10.0-ios/ios-arm64 -name "*.ipa" | head -1)
+          else
+            echo "Found archive: $ARCHIVE_PATH"
+            # Create export options plist
+            cat > exportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>$(cat $RUNNER_TEMP/team_id.txt 2>/dev/null || echo "")</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>uploadBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+            
+            xcodebuild -exportArchive \
+              -archivePath "$ARCHIVE_PATH" \
+              -exportPath "src/Atlas.MAUI/bin/Release/net10.0-ios/ios-arm64/publish" \
+              -exportOptionsPlist exportOptions.plist
+            
+            IPA_PATH=$(find src/Atlas.MAUI/bin/Release/net10.0-ios/ios-arm64/publish -name "*.ipa" | head -1)
+          fi
+          
+          echo "IPA_PATH=$IPA_PATH" >> $GITHUB_ENV
+          echo "Found IPA at: $IPA_PATH"
+
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: atlas-ios-release
+          name: atlas-ios-ipa
           path: src/Atlas.MAUI/bin/Release/net10.0-ios/ios-arm64/publish/*.ipa
           retention-days: 30
+
+      - name: Upload to TestFlight
+        if: env.IPA_PATH != '' && (github.event.inputs.deploy_to_testflight == 'true' || github.event.inputs.deploy_to_testflight == null)
+        env:
+          IPA_PATH: ${{ env.IPA_PATH }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          # Install xcrun altool if needed (usually pre-installed)
+          # Validate the IPA first
+          echo "Validating IPA..."
+          xcrun altool --validate-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$APPLE_KEY_ID" \
+            --apiIssuer "$APPLE_ISSUER_ID" \
+            --verbose || true
+          
+          # Upload to TestFlight
+          echo "Uploading to TestFlight..."
+          xcrun altool --upload-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$APPLE_KEY_ID" \
+            --apiIssuer "$APPLE_ISSUER_ID" \
+            --verbose
+
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "✅ iOS build completed and uploaded to TestFlight"
+          echo "App will be available for internal testing once Apple processes it (usually 10-30 minutes)"
