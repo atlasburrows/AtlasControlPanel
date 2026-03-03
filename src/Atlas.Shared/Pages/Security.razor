@@ -434,8 +434,8 @@
     private static string GetGroupIcon(string groupName) => groupName.ToLower() switch
     {
         var g when g.Contains("github") => Icons.Material.Filled.Code,
-        var g when g.Contains("apple") => Icons.Material.Filled.Apple,
-        var g when g.Contains("google") => Icons.Material.Filled.Google,
+        var g when g.Contains("apple") => Icons.Material.Filled.PhoneIphone,
+        var g when g.Contains("google") => Icons.Material.Filled.Cloud,
         var g when g.Contains("system") => Icons.Material.Filled.Settings,
         var g when g.Contains("business") => Icons.Material.Filled.Business,
         var g when g.Contains("personal") => Icons.Material.Filled.Person,
