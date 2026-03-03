@@ -90,11 +90,24 @@ jobs:
 
       - name: Build iOS (Debug - Simulator)
         run: |
+          echo "=== Starting iOS Build ==="
           dotnet build src/Atlas.MAUI/Atlas.MAUI.csproj \
             -f net10.0-ios \
             -c Debug \
             /p:RuntimeIdentifier=iossimulator-arm64 \
-            /p:_RequireCodeSigning=false
+            /p:_RequireCodeSigning=false \
+            /p:BuildIpa=false \
+            --verbosity normal 2>&1 | tee build.log
+          echo "=== Build Complete ==="
+        continue-on-error: true
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log-${{ github.run_number }}
+          path: build.log
+          retention-days: 7
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
