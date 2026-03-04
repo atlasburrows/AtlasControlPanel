@@ -30,11 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install jq
-          # Install compatible iOS workload for Xcode 16.2
-          # .NET 10's iOS SDK 26.0 requires Xcode 26.0 which doesn't exist
-          # Use .NET 9 iOS SDK (17.5.8030) which supports Xcode 16.x
-          dotnet workload install ios --version 9.0.100 --skip-sign-check
-          dotnet workload install maui --skip-sign-check
+          # Note: iOS workload not needed for certificate creation
 
       - name: Create Certificate Signing Request
         id: create_csr
@@ -92,10 +88,10 @@ jobs:
 
       - name: Install .NET workloads
         run: |
-          echo "Installing .NET MAUI workloads..."
-          # Use .NET 9 iOS SDK which supports Xcode 16.x
-          dotnet workload install ios --version 9.0.100 --skip-sign-check
-          dotnet workload install maui --skip-sign-check
+          echo "Clearing existing workload manifests to avoid conflicts..."
+          rm -rf ~/.dotnet/sdk-manifests/*
+          echo "Installing .NET 9 MAUI workloads for Xcode 16.2 compatibility..."
+          dotnet workload install ios maui --version 9.0.100 --skip-sign-check
           echo "Verifying installed workloads..."
           dotnet workload list
           echo "Checking iOS SDK version..."
@@ -151,8 +147,12 @@ jobs:
       - name: Install MAUI workload
         run: |
           # Use .NET 9 iOS SDK which supports Xcode 16.x
-          dotnet workload install ios --version 9.0.100 --skip-sign-check
-          dotnet workload install maui --skip-sign-check
+      - name: Clear and Install .NET workloads
+        run: |
+          echo "Clearing existing workload manifests to avoid conflicts..."
+          rm -rf ~/.dotnet/sdk-manifests/*
+          echo "Installing .NET 9 MAUI workloads for Xcode 16.2 compatibility..."
+          dotnet workload install ios maui --version 9.0.100 --skip-sign-check
 
       - name: Restore dependencies
         run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:IOSOnly=true
