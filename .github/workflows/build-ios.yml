@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install jq
-          dotnet workload install maui-ios --skip-sign-check
+          dotnet workload install maui-ios --version 10.0.100 --skip-sign-check
 
       - name: Create Certificate Signing Request
         id: create_csr
@@ -89,7 +89,8 @@ jobs:
       - name: Install .NET workloads
         run: |
           echo "Installing .NET MAUI workloads..."
-          dotnet workload install maui-ios --skip-sign-check
+          # Pin to specific version compatible with Xcode 16.2 on macos-15
+          dotnet workload install maui-ios --version 10.0.100 --skip-sign-check
           echo "Verifying installed workloads..."
           dotnet workload list
 
@@ -141,7 +142,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Install MAUI workload
-        run: dotnet workload install maui-ios --skip-sign-check
+        run: dotnet workload install maui-ios --version 10.0.100 --skip-sign-check
 
       - name: Restore dependencies
         run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:IOSOnly=true
