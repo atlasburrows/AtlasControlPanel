@@ -72,10 +72,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET 9
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Select Xcode Version
         run: |
@@ -89,7 +89,7 @@ jobs:
       - name: Install .NET workloads
         run: |
           echo "Installing .NET 9 MAUI workloads for Xcode 16.2 compatibility..."
-          dotnet workload install maui-ios --skip-sign-check
+          dotnet workload install maui-ios --version 9.0.100 --skip-sign-check
           echo "Verifying installed workloads..."
           dotnet workload list
           echo "Checking iOS SDK version..."
@@ -137,15 +137,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET 9
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Install .NET workloads
         run: |
           echo "Installing .NET 9 MAUI workloads for Xcode 16.2 compatibility..."
-          dotnet workload install maui-ios --skip-sign-check
+          dotnet workload install maui-ios --version 9.0.100 --skip-sign-check
 
       - name: Restore dependencies
         run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:CIBuildTarget=net9.0-ios
