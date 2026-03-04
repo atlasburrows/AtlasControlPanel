@@ -101,6 +101,9 @@ jobs:
           echo "Checking iOS SDK version..."
           ls -la ~/.dotnet/packs/Microsoft.iOS.Sdk*/
 
+      - name: Restore workloads
+        run: dotnet workload restore src/Atlas.MAUI/Atlas.MAUI.csproj
+
       - name: Restore dependencies
         run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:CIBuildTarget=net9.0-ios
 
@@ -158,6 +161,9 @@ jobs:
           }
           EOF
           dotnet workload install ios maui --from-rollback-file rollback.json --skip-sign-check
+
+      - name: Restore workloads
+        run: dotnet workload restore src/Atlas.MAUI/Atlas.MAUI.csproj
 
       - name: Restore dependencies
         run: dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:CIBuildTarget=net9.0-ios
