@@ -2,10 +2,10 @@ using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Atlas.Application;
-using Atlas.Infrastructure;
-using Atlas.Infrastructure.Hubs;
-using Atlas.Web.Components;
+using Vigil.Application;
+using Vigil.Infrastructure;
+using Vigil.Infrastructure.Hubs;
+using Vigil.Web.Components;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,12 +46,12 @@ builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5263") });
-builder.Services.AddSingleton<Atlas.Web.Services.TelegramNotificationService>(); // Legacy — kept for backward compat
-builder.Services.AddSingleton<Atlas.Web.Services.NotificationService>();
-builder.Services.AddSingleton<Atlas.Web.Services.OpenClawGatewayService>();
-builder.Services.AddHostedService<Atlas.Infrastructure.Services.HealthGuardianService>();
-builder.Services.AddSingleton<Atlas.Infrastructure.Security.IApprovalTokenService, Atlas.Infrastructure.Security.ApprovalTokenService>();
-builder.Services.AddSingleton<Atlas.Infrastructure.Security.IApprovalLockoutService, Atlas.Infrastructure.Security.ApprovalLockoutService>();
+builder.Services.AddSingleton<Vigil.Web.Services.TelegramNotificationService>(); // Legacy — kept for backward compat
+builder.Services.AddSingleton<Vigil.Web.Services.NotificationService>();
+builder.Services.AddSingleton<Vigil.Web.Services.OpenClawGatewayService>();
+builder.Services.AddHostedService<Vigil.Infrastructure.Services.HealthGuardianService>();
+builder.Services.AddSingleton<Vigil.Infrastructure.Security.IApprovalTokenService, Vigil.Infrastructure.Security.ApprovalTokenService>();
+builder.Services.AddSingleton<Vigil.Infrastructure.Security.IApprovalLockoutService, Vigil.Infrastructure.Security.ApprovalLockoutService>();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -431,7 +431,7 @@ app.MapPost("/api/chat/relay", async (IConfiguration config, IHttpClientFactory 
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
-    .AddAdditionalAssemblies(typeof(Atlas.Shared.SharedAssemblyMarker).Assembly);
+    .AddAdditionalAssemblies(typeof(Vigil.Shared.SharedAssemblyMarker).Assembly);
 
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<ActivityHub>("/hubs/activity");

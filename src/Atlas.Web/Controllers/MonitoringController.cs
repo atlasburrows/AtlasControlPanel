@@ -1,9 +1,9 @@
-using Atlas.Application.Common.Interfaces;
-using Atlas.Domain.Entities;
-using Atlas.Domain.ValueObjects;
+using Vigil.Application.Common.Interfaces;
+using Vigil.Domain.Entities;
+using Vigil.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Atlas.Web.Controllers;
+namespace Vigil.Web.Controllers;
 
 [ApiController]
 [Route("api/monitoring")]

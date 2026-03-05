@@ -1,9 +1,9 @@
-using Atlas.Application.Common.Interfaces;
-using Atlas.Domain.Entities;
-using Atlas.Domain.Enums;
+using Vigil.Application.Common.Interfaces;
+using Vigil.Domain.Entities;
+using Vigil.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Atlas.API.Controllers;
+namespace Vigil.API.Controllers;
 
 [ApiController]
 [Route("api/tasks")]

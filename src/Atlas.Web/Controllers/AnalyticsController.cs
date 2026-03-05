@@ -1,11 +1,11 @@
-using Atlas.Application.Common.Interfaces;
-using Atlas.Domain.Entities;
-using Atlas.Domain.ValueObjects;
-using Atlas.Infrastructure.Services;
+using Vigil.Application.Common.Interfaces;
+using Vigil.Domain.Entities;
+using Vigil.Domain.ValueObjects;
+using Vigil.Infrastructure.Services;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Atlas.Web.Controllers;
+namespace Vigil.Web.Controllers;
 
 [ApiController]
 [Route("api/analytics")]

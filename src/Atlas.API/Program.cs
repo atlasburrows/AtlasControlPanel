@@ -1,5 +1,5 @@
-using Atlas.Application;
-using Atlas.Infrastructure;
+using Vigil.Application;
+using Vigil.Infrastructure;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);

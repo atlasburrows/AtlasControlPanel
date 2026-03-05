@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Atlas.Web.Services;
+namespace Vigil.Web.Services;
 
 public class TelegramNotificationService(IConfiguration config, IHttpClientFactory httpFactory, ILogger<TelegramNotificationService> logger)
 {

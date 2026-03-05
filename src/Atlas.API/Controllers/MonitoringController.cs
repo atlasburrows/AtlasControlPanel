@@ -1,9 +1,9 @@
-using Atlas.Application.Common.Interfaces;
-using Atlas.Domain.Entities;
-using Atlas.Domain.ValueObjects;
+using Vigil.Application.Common.Interfaces;
+using Vigil.Domain.Entities;
+using Vigil.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Atlas.API.Controllers;
+namespace Vigil.API.Controllers;
 
 [ApiController]
 [Route("api/monitoring")]
@@ -36,7 +36,7 @@ public class MonitoringController(IMonitoringRepository monitoringRepository) : 
         // Also log to TokenUsage if the service is available and extra fields are provided
         if (tokenUsageRepository != null && !string.IsNullOrEmpty(cost.Provider) && !string.IsNullOrEmpty(cost.Model))
         {
-            var usage = new Atlas.Domain.Entities.TokenUsage
+            var usage = new Vigil.Domain.Entities.TokenUsage
             {
                 Id = Guid.NewGuid(),
                 Timestamp = DateTime.UtcNow,
@@ -80,9 +80,9 @@ public record CostIncrement(
 [Route("api/export")]
 public class ExportController(
     IMonitoringRepository monitoringRepository,
-    Atlas.Application.Common.Interfaces.ITaskRepository taskRepository,
-    Atlas.Application.Common.Interfaces.IActivityRepository activityRepository,
-    Atlas.Application.Common.Interfaces.ISecurityRepository securityRepository) : ControllerBase
+    Vigil.Application.Common.Interfaces.ITaskRepository taskRepository,
+    Vigil.Application.Common.Interfaces.IActivityRepository activityRepository,
+    Vigil.Application.Common.Interfaces.ISecurityRepository securityRepository) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> ExportAll()

@@ -40,13 +40,13 @@ workflows:
         script: |
           export PATH="$DOTNET_PATH:$PATH"
           echo "Restoring with IOSOnly=true..."
-          dotnet restore src/Atlas.MAUI/Atlas.MAUI.csproj -p:IOSOnly=true
+          dotnet restore src/Vigil.MAUI/Vigil.MAUI.csproj -p:IOSOnly=true
       
       - name: Build iOS (Simulator - Debug)
         script: |
           export PATH="$DOTNET_PATH:$PATH"
           echo "Building iOS for Simulator (Debug)..."
-          dotnet build src/Atlas.MAUI/Atlas.MAUI.csproj \
+          dotnet build src/Vigil.MAUI/Vigil.MAUI.csproj \
             -f net10.0-ios \
             -c Debug \
             /p:BuildIpa=false \
@@ -57,7 +57,7 @@ workflows:
         script: |
           export PATH="$DOTNET_PATH:$PATH"
           echo "Building iOS for Device (Release with code signing)..."
-          dotnet build src/Atlas.MAUI/Atlas.MAUI.csproj \
+          dotnet build src/Vigil.MAUI/Vigil.MAUI.csproj \
             -f net10.0-ios \
             -c Release \
             /p:BuildIpa=true \
@@ -72,8 +72,8 @@ workflows:
           ls -la "$CM_BUILD_DIR/"*.ipa || echo "IPA not found at expected location"
           ls -la src/Atlas.MAUI/bin/Release/net10.0-ios/ || true
     artifacts:
-      - src/Atlas.MAUI/bin/Release/net10.0-ios/*.ipa
-      - src/Atlas.MAUI/bin/Debug/net10.0-ios/**/*.app
+      - src/Vigil.MAUI/bin/Release/net10.0-ios/*.ipa
+      - src/Vigil.MAUI/bin/Debug/net10.0-ios/**/*.app
       - $CM_BUILD_DIR/*.ipa
     publishing:
       # Uncomment and configure when ready for TestFlight

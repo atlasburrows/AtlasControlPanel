@@ -1,6 +1,6 @@
-namespace Atlas.Web.Controllers;
+namespace Vigil.Web.Controllers;
 
-using Atlas.Application.Licensing;
+using Vigil.Application.Licensing;
 using Microsoft.AspNetCore.Mvc;
 
 /// <summary>

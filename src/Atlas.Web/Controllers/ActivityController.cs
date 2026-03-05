@@ -1,8 +1,8 @@
-using Atlas.Application.Common.Interfaces;
-using Atlas.Domain.Entities;
+using Vigil.Application.Common.Interfaces;
+using Vigil.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Atlas.Web.Controllers;
+namespace Vigil.Web.Controllers;
 
 [ApiController]
 [Route("api/activity")]

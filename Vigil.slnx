@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Vigil.API/Vigil.API.csproj" />
+    <Project Path="src/Vigil.Application/Vigil.Application.csproj" />
+    <Project Path="src/Vigil.Domain/Vigil.Domain.csproj" />
+    <Project Path="src/Vigil.Infrastructure/Vigil.Infrastructure.csproj" />
+    <Project Path="src/Vigil.MAUI/Vigil.MAUI.csproj" />
+    <Project Path="src/Vigil.Shared/Vigil.Shared.csproj" />
+    <Project Path="src/Vigil.Web/Vigil.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Vigil.Tests/Vigil.Tests.csproj" />
+  </Folder>
+</Solution>

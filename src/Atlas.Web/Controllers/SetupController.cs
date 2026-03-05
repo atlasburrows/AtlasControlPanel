@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Atlas.Web.Controllers;
+namespace Vigil.Web.Controllers;
 
 [ApiController]
 [Route("api/setup")]

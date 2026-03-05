@@ -1,11 +1,11 @@
-using Atlas.Application.Common.Interfaces;
-using Atlas.Domain.Entities;
-using Atlas.Domain.Enums;
-using Atlas.Infrastructure.Security;
-using Atlas.Web.Services;
+using Vigil.Application.Common.Interfaces;
+using Vigil.Domain.Entities;
+using Vigil.Domain.Enums;
+using Vigil.Infrastructure.Security;
+using Vigil.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Atlas.Web.Controllers;
+namespace Vigil.Web.Controllers;
 
 [ApiController]
 [Route("api/security")]

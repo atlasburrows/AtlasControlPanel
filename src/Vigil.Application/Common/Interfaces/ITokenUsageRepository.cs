@@ -1,0 +1,16 @@
+using Vigil.Domain.Entities;
+using Vigil.Domain.ValueObjects;
+
+namespace Vigil.Application.Common.Interfaces;
+
+public interface ITokenUsageRepository
+{
+    Task LogUsageAsync(TokenUsage usage);
+    Task<List<TokenUsage>> GetUsageByDateRangeAsync(DateTime from, DateTime to);
+    Task<List<ModelCostBreakdown>> GetUsageSummaryByModelAsync(DateTime from, DateTime to);
+    Task<List<DailyCostPoint>> GetUsageSummaryByDayAsync(DateTime from, DateTime to);
+    Task<List<SessionCostBreakdown>> GetUsageSummaryBySessionAsync(DateTime from, DateTime to);
+    Task<decimal> GetTotalCostAsync(DateTime from, DateTime to);
+    Task<IEnumerable<ProjectCostSummary>> GetUsageSummaryByProjectAsync(DateTime from, DateTime to, int inactiveDaysThreshold = 7);
+    Task<DashboardRoiSummary> GetDashboardRoiAsync(DateTime from, DateTime to);
+}

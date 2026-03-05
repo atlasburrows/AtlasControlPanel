@@ -1,8 +1,0 @@
-using System.Data;
-
-namespace Atlas.Application.Common.Interfaces;
-
-public interface IDbConnectionFactory
-{
-    IDbConnection CreateConnection();
-}

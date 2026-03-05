@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Atlas.Web.Services;
+namespace Vigil.Web.Services;
 
 /// <summary>
 /// Sends all notifications through the OpenClaw Gateway messaging API.

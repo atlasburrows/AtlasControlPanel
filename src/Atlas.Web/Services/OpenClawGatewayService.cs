@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Atlas.Web.Services;
+namespace Vigil.Web.Services;
 
 /// <summary>
 /// Calls the OpenClaw Gateway's /tools/invoke endpoint to inject system events
