@@ -1,7 +1,7 @@
 @page "/security"
-@using Atlas.Application.Common.Interfaces
-@using Atlas.Domain.Entities
-@using Atlas.Domain.Enums
+@using Vigil.Application.Common.Interfaces
+@using Vigil.Domain.Entities
+@using Vigil.Domain.Enums
 @inject ISecurityRepository SecurityRepo
 @inject ICredentialRepository CredentialRepo
 @inject ISnackbar Snackbar
@@ -446,3 +446,4 @@
         _ => Icons.Material.Filled.Folder
     };
 }
+

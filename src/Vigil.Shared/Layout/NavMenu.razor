@@ -1,4 +1,4 @@
-@using Atlas.Application.Common.Interfaces
+@using Vigil.Application.Common.Interfaces
 @using Dapper
 @using System.Data
 @inject IDbConnectionFactory DbFactory
@@ -103,3 +103,4 @@
 
     public void Dispose() => _timer?.Dispose();
 }
+
