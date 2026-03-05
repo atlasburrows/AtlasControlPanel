@@ -76,3 +76,4 @@ public class CredentialController(
 }
 
 public record DecryptRequestDto(Guid PermissionRequestId);
+

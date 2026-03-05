@@ -25,3 +25,4 @@ var app = builder.Build();
 app.UseCors("AllowAll");
 app.MapControllers();
 app.Run();
+

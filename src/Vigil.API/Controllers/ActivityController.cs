@@ -37,3 +37,4 @@ public class ActivityController(IActivityRepository activityRepository) : Contro
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 }
+

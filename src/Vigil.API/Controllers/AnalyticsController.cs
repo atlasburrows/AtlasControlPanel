@@ -217,3 +217,4 @@ public record TokenUsageDto(
     string? TaskCategory = null,
     int? ContextPercent = null,
     DateTime? Timestamp = null);
+

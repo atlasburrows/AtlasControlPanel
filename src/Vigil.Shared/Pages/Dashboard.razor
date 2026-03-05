@@ -252,7 +252,7 @@
     private string _todayCost = "$0.00";
     private bool _todayCostFromDb;
     private string _tokensLeft = "—";
-    private List<Atlas.Domain.Entities.ActivityLog> _recentActivity = new();
+    private List<Vigil.Domain.Entities.ActivityLog> _recentActivity = new();
     private List<DailyCost> _dailyCosts = new();
     private decimal _maxDailyCost;
     private System.Threading.Timer? _healthTimer;
@@ -512,4 +512,5 @@
         _healthTimer?.Dispose();
     }
 }
+
 

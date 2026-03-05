@@ -423,11 +423,11 @@
         _ => "🔒"
     };
 
-    private static string GetSeverityStyle(Atlas.Domain.Enums.Severity s) => s switch
+    private static string GetSeverityStyle(Vigil.Domain.Enums.Severity s) => s switch
     {
-        Atlas.Domain.Enums.Severity.Critical => "color: #ef4444; border-color: #ef4444;",
-        Atlas.Domain.Enums.Severity.Warning => "color: #f59e0b; border-color: #f59e0b;",
-        Atlas.Domain.Enums.Severity.Info => "color: #3b82f6; border-color: #3b82f6;",
+        Vigil.Domain.Enums.Severity.Critical => "color: #ef4444; border-color: #ef4444;",
+        Vigil.Domain.Enums.Severity.Warning => "color: #f59e0b; border-color: #f59e0b;",
+        Vigil.Domain.Enums.Severity.Info => "color: #3b82f6; border-color: #3b82f6;",
         _ => "color: #8b949e; border-color: #8b949e;"
     };
 
@@ -446,4 +446,5 @@
         _ => Icons.Material.Filled.Folder
     };
 }
+
 

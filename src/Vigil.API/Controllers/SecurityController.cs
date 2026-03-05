@@ -132,3 +132,4 @@ public class SecurityController(ISecurityRepository securityRepository) : Contro
 public record UpdatePermissionDto(PermissionStatus Status, string ResolvedBy);
 public record CredentialRequestDto(string CredentialName, string Reason, int? DurationMinutes);
 public record CredentialGroupRequestDto(string GroupName, string Reason, int? DurationMinutes);
+
